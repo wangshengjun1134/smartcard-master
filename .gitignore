@@ -146,3 +146,5 @@ tmp/
 # Brand build workspaces (created by the desktop-brand-builder skill)
 brand-builds/
 workspace/
+.npm-cache-tmp/
+.npm-cache/
