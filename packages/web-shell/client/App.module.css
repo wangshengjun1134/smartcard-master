@@ -1235,3 +1235,14 @@
   color: var(--foreground);
   background: color-mix(in srgb, var(--foreground) 8%, transparent);
 }
+
+/* SmartCard Console Panel */
+.smartCardPanel {
+  flex: 0 0 min(320px, 20vw);
+  min-width: 280px;
+  border-left: 1px solid var(--border);
+  background: var(--background);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}

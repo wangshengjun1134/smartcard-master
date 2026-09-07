@@ -154,6 +154,7 @@ import {
   type ArtifactPanelTab,
   type SideTaskListItem,
 } from './components/artifacts/ArtifactPanel';
+import { SmartCardConsole } from './components/smartcard/SmartCardConsole';
 import { releaseWebTerminal } from './components/terminal/TerminalPanel';
 import { Drawer, DrawerContent, DrawerTitle } from './components/ui/drawer';
 import type {
@@ -386,6 +387,9 @@ const MIN_CHAT_PANE_WIDTH_WITH_ARTIFACT_PANEL = 500;
 const SUBAGENT_PANEL_ANIMATION_FALLBACK_MS = 700;
 const MIN_DOCKED_MESSAGE_AREA_WIDTH = 800;
 const DOCKED_ENVIRONMENT_PANEL_WIDTH = 332;
+const DEFAULT_SMARTCARD_PANEL_WIDTH = 500;
+const MIN_SMARTCARD_PANEL_WIDTH = 320;
+const MAX_SMARTCARD_PANEL_WIDTH = 800;
 
 function isWebTerminalTarget(event: Event): boolean {
   const target = event.composedPath()[0] ?? event.target;
@@ -3408,6 +3412,10 @@ export function App({
   const [artifactPanelWidth, setArtifactPanelWidth] = useState(
     DEFAULT_REVIEW_PANEL_WIDTH,
   );
+  const [smartCardPanelWidth, setSmartCardPanelWidth] = useState(
+    DEFAULT_SMARTCARD_PANEL_WIDTH,
+  );
+  const smartCardPanelResizeCleanupRef = useRef<(() => void) | null>(null);
   const [artifactPanelFullscreen, setArtifactPanelFullscreen] = useState(false);
   const artifactPanelFullscreenRef = useRef(false);
   artifactPanelFullscreenRef.current = artifactPanelFullscreen;
@@ -4557,7 +4565,65 @@ export function App({
     },
     [artifactPanelWidth, getMaxArtifactPanelWidth],
   );
+  const handleSmartCardPanelResizeStart = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      const resizeHandle = event.currentTarget;
+      resizeHandle.setPointerCapture(event.pointerId);
+      const startX = event.clientX;
+      const startWidth = smartCardPanelWidth;
+      const previousCursor = document.body.style.cursor;
+      const previousUserSelect = document.body.style.userSelect;
+      let pendingWidth = startWidth;
+      let animationFrame: number | null = null;
+
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+
+      const flushWidth = () => {
+        animationFrame = null;
+        setSmartCardPanelWidth(pendingWidth);
+      };
+
+      const handlePointerMove = (moveEvent: PointerEvent) => {
+        pendingWidth = Math.min(
+          MAX_SMARTCARD_PANEL_WIDTH,
+          Math.max(
+            MIN_SMARTCARD_PANEL_WIDTH,
+            startWidth - (moveEvent.clientX - startX),
+          ),
+        );
+        if (animationFrame === null) {
+          animationFrame = window.requestAnimationFrame(flushWidth);
+        }
+      };
+      let handlePointerUp: () => void = () => {};
+      const cleanupResize = (commitWidth: boolean) => {
+        smartCardPanelResizeCleanupRef.current = null;
+        if (animationFrame !== null) {
+          window.cancelAnimationFrame(animationFrame);
+          animationFrame = null;
+        }
+        if (commitWidth) setSmartCardPanelWidth(pendingWidth);
+        if (resizeHandle.hasPointerCapture(event.pointerId)) {
+          resizeHandle.releasePointerCapture(event.pointerId);
+        }
+        document.body.style.cursor = previousCursor;
+        document.body.style.userSelect = previousUserSelect;
+        window.removeEventListener('pointermove', handlePointerMove);
+        window.removeEventListener('pointerup', handlePointerUp);
+        window.removeEventListener('pointercancel', handlePointerUp);
+      };
+      handlePointerUp = () => cleanupResize(true);
+      smartCardPanelResizeCleanupRef.current = () => cleanupResize(false);
+      window.addEventListener('pointermove', handlePointerMove);
+      window.addEventListener('pointerup', handlePointerUp);
+      window.addEventListener('pointercancel', handlePointerUp);
+    },
+    [smartCardPanelWidth],
+  );
   useEffect(() => () => artifactPanelResizeCleanupRef.current?.(), []);
+  useEffect(() => () => smartCardPanelResizeCleanupRef.current?.(), []);
   const rawPendingApproval = useMemo(
     () => extractPendingPermission(blocks),
     [blocks],
@@ -16174,6 +16240,12 @@ export function App({
                 </div>,
                 artifactPanelSlotEl,
               )}
+            {/* SmartCard Console - fixed panel on the right side */}
+            <SmartCardConsole
+              className={styles.smartCardPanel}
+              width={smartCardPanelWidth}
+              onResizeStart={handleSmartCardPanelResizeStart}
+            />
           </div>
         </div>
         </CompactModeContext.Provider>
