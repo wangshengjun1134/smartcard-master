@@ -317,7 +317,7 @@
   bottom: 100%;
   left: 0;
   margin-bottom: 4px;
-  min-width: 200px;
+  min-width: 280px;
   background: var(--popover);
   border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
@@ -364,6 +364,7 @@
   font-size: 13px;
   font-weight: 500;
   color: var(--foreground);
+  white-space: nowrap;
 }
 
 .readerMenuItemStatus {

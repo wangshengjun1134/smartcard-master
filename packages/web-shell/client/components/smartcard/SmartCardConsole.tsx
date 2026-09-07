@@ -229,7 +229,7 @@ export function SmartCardConsole({
 
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
-      handleSubmit(new Event('submit') as FormEvent);
+      handleSubmit({ preventDefault: () => {} } as FormEvent);
     }
   };
 
