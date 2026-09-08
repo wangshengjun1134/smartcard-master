@@ -61,6 +61,9 @@ impl DesktopRuntime {
             .stderr(Stdio::piped())
             .env("QWEN_CODE_DESKTOP", "1")
             .env("QWEN_SERVER_TOKEN", &token);
+        if layout.sidecar.is_file() {
+            command.env("QWEN_SMARTCARD_SIDECAR", &layout.sidecar);
+        }
 
         let mut child = spawn_runtime_group(&mut command)
             .map_err(|error| format!("Failed to start bundled Qwen Code runtime: {error}"))?;
@@ -156,6 +159,7 @@ fn spawn_runtime_group(command: &mut Command) -> std::io::Result<GroupChild> {
 struct RuntimeLayout {
     node: PathBuf,
     entry: PathBuf,
+    sidecar: PathBuf,
 }
 
 impl RuntimeLayout {
@@ -174,25 +178,35 @@ impl RuntimeLayout {
                 .join("runtime")
                 .join("qwen-code")
         };
-        let (node, entry) = layout_from_root(root);
+        let (node, entry, sidecar) = layout_from_root(root);
         require_file(&node, "Node.js runtime")?;
         require_file(&entry, "Qwen Code runtime entry")?;
-        Ok(Self { node, entry })
+        Ok(Self {
+            node,
+            entry,
+            sidecar,
+        })
     }
 }
 
-fn layout_from_root(root: PathBuf) -> (PathBuf, PathBuf) {
+fn layout_from_root(root: PathBuf) -> (PathBuf, PathBuf, PathBuf) {
     let node = if cfg!(windows) {
         root.join("node").join("node.exe")
     } else {
         root.join("node").join("bin").join("node")
     };
     let entry = root.join("lib").join("cli-entry.js");
+    let sidecar = if cfg!(windows) {
+        root.join("bin").join("smartcard-sidecar.exe")
+    } else {
+        root.join("bin").join("smartcard-sidecar")
+    };
     // Tauri's resource_dir() returns `\\?\` verbatim paths on Windows, and
     // Node's entry-script resolution cannot handle that prefix (#8929).
     (
         dunce::simplified(&node).to_path_buf(),
         dunce::simplified(&entry).to_path_buf(),
+        dunce::simplified(&sidecar).to_path_buf(),
     )
 }
 

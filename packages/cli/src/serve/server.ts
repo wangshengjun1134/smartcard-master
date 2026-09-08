@@ -14,6 +14,7 @@ import {
   readCronTasks,
   Storage,
   WebTerminalRegistry,
+  createSmartCardRuntime,
   type DurableCronTask,
 } from '@qwen-code/qwen-code-core';
 import type { DaemonLogger } from './daemon-logger.js';
@@ -155,6 +156,7 @@ import {
   registerWorkspaceQualifiedStatusRoutes,
   registerWorkspaceStatusRoutes,
 } from './routes/workspace-status.js';
+import { registerSmartCardRoutes } from './routes/workspace-smartcard.js';
 import {
   registerWorkspaceQualifiedRuntimeRoutes,
   registerWorkspaceRuntimeRoutes,
@@ -2319,6 +2321,18 @@ export function createServeApp(
     safeBody,
     deliverChannelMessage: deps.deliverChannelMessage,
   });
+
+  // Smart-card routes expose the process-level reader connection (used by the
+  // Web Shell console). Enabled only in the desktop host where a PC/SC stack
+  // is expected; the runtime object itself is lazy and does not touch native
+  // bindings until the first reader operation.
+  if (process.env['QWEN_CODE_DESKTOP'] === '1') {
+    registerSmartCardRoutes(app, {
+      runtime: createSmartCardRuntime(),
+      mutate,
+      sendBridgeError,
+    });
+  }
 
   registerWorkspaceStatusRoutes(app, {
     boundWorkspace: primaryBoundWorkspace,

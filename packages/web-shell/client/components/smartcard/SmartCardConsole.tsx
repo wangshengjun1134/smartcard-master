@@ -7,6 +7,8 @@ import {
   ChevronRight,
   ChevronDown,
   Usb,
+  Unplug,
+  Plug,
 } from 'lucide-react';
 import {
   useState,
@@ -19,13 +21,14 @@ import {
   type ChangeEvent,
 } from 'react';
 import styles from './SmartCardConsole.module.css';
-
-// Mock data for readers
-const READERS = [
-  { id: 'reader-1', name: 'ACS ACR122U', status: 'connected' },
-  { id: 'reader-2', name: 'SCR3310', status: 'disconnected' },
-  { id: 'reader-3', name: 'OMNIKEY 3121', status: 'connected' },
-];
+import {
+  connectReader,
+  disconnectReader,
+  listReaders,
+  resetCard,
+  sendApdu,
+  type ReaderInfo,
+} from './smartcard-api.js';
 
 // Mock data for slash commands
 const SLASH_COMMANDS = [
@@ -95,13 +98,79 @@ export function SmartCardConsole({
   const readerMenuRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLDivElement>(null);
 
+  const addConsoleLine = useCallback(
+    (message: string, type?: 'input' | 'output') => {
+      const now = new Date();
+      const timestamp = `[${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}]`;
+      setConsoleLines((prev) => [...prev, { timestamp, message, type }]);
+    },
+    [],
+  );
+
   // Menu state
   const [menuType, setMenuType] = useState<MenuType>('none');
   const [menuQuery, setMenuQuery] = useState('');
   const [menuIndex, setMenuIndex] = useState(0);
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showReaderMenu, setShowReaderMenu] = useState(false);
-  const [selectedReader, setSelectedReader] = useState(READERS[0]);
+
+  // Smart-card reader state
+  const [readers, setReaders] = useState<ReaderInfo[]>([]);
+  const [selectedReader, setSelectedReader] = useState<ReaderInfo | null>(null);
+  const [activeReaderId, setActiveReaderId] = useState<string | null>(null);
+  const [connecting, setConnecting] = useState(false);
+
+  const isSelectedConnected = selectedReader?.id === activeReaderId;
+
+  // Load readers and active connection on mount.
+  const refreshReaders = useCallback(async () => {
+    try {
+      const { readers: nextReaders, activeReader: session } =
+        await listReaders();
+      setReaders(nextReaders);
+      setActiveReaderId(session.connected ? session.readerId : null);
+      setSelectedReader((prev) => {
+        if (prev && nextReaders.some((r) => r.id === prev.id)) {
+          return nextReaders.find((r) => r.id === prev.id) ?? prev;
+        }
+        return nextReaders[0] ?? null;
+      });
+    } catch {
+      // No daemon / no PC/SC stack: keep the console usable in a degraded
+      // state and let the next explicit command surface the error.
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshReaders();
+  }, [refreshReaders]);
+
+  const handleConnectToggle = useCallback(async () => {
+    if (!selectedReader) return;
+    setConnecting(true);
+    try {
+      if (isSelectedConnected) {
+        await disconnectReader();
+        setActiveReaderId(null);
+        addConsoleLine('Reader disconnected.', 'output');
+      } else {
+        const { atr } = await connectReader(selectedReader.id);
+        setActiveReaderId(selectedReader.id);
+        addConsoleLine(
+          `Connected to "${selectedReader.name}". ATR = ${atr || '(unavailable)'}`,
+          'output',
+        );
+      }
+      await refreshReaders();
+    } catch (error) {
+      addConsoleLine(
+        `Reader operation failed: ${error instanceof Error ? error.message : String(error)}`,
+        'output',
+      );
+    } finally {
+      setConnecting(false);
+    }
+  }, [selectedReader, isSelectedConnected, refreshReaders, addConsoleLine]);
 
   // Filter items based on query
   const filteredSlashCommands = SLASH_COMMANDS.filter((cmd) =>
@@ -234,26 +303,22 @@ export function SmartCardConsole({
   };
 
   // Handle submit
-  const handleSubmit = (event: FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!inputValue.trim()) return;
+    const raw = inputValue.trim();
+    if (!raw) return;
 
-    const now = new Date();
-    const timestamp = `[${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}]`;
+    addConsoleLine(`> ${raw}`, 'input');
 
-    setConsoleLines((prev) => [
-      ...prev,
-      { timestamp, message: `> ${inputValue}`, type: 'input' },
-    ]);
-
-    setTimeout(() => {
-      const response = executeCommand(inputValue.trim());
-      setConsoleLines((prev) => [
-        ...prev,
-        { timestamp, message: response, type: 'output' },
-      ]);
-      consoleEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
+    try {
+      const response = await executeCommand(raw);
+      addConsoleLine(response, 'output');
+    } catch (error) {
+      addConsoleLine(
+        error instanceof Error ? error.message : String(error),
+        'output',
+      );
+    }
 
     setInputValue('');
     setMenuType('none');
@@ -267,9 +332,9 @@ export function SmartCardConsole({
     }, 0);
   };
 
-  const executeCommand = (command: string): string => {
+  const executeCommand = async (command: string): Promise<string> => {
     if (command === '/help') {
-      return 'Available commands: /help, /clear, /version, /status, /select, /create, /edit, /delete, /list';
+      return 'Commands: /apdu <hex> | /reset | /help /clear /version /status';
     }
     if (command === '/clear') {
       setConsoleLines([]);
@@ -279,20 +344,55 @@ export function SmartCardConsole({
       return 'SmartCard Console v1.0.0';
     }
     if (command === '/status') {
-      return 'Status: OK | All systems operational';
+      return `Active reader: ${activeReaderId ?? '(none)'} | Readers: ${readers.length}`;
     }
-    if (command.startsWith('/select')) {
-      const card = command.split(' ')[1] || 'default';
-      return `Card "${card}" selected successfully`;
+    if (command === '/reset') {
+      return resetCardCommand();
     }
-    if (command.startsWith('/create')) {
-      return 'New card created successfully';
-    }
-    if (command.startsWith('@')) {
-      const mention = command.split(' ')[0].substring(1);
-      return `Referenced: ${mention}`;
+
+    const apduHex = command.startsWith('/apdu')
+      ? command.slice('/apdu'.length).trim()
+      : command;
+    if (/^[0-9a-fA-F\s]+$/.test(apduHex)) {
+      return sendApduCommand(apduHex);
     }
     return `Unknown command: ${command}. Type /help for available commands.`;
+  };
+
+  const resetCardCommand = async (): Promise<string> => {
+    if (!activeReaderId) {
+      return 'No active reader. Connect a reader first.';
+    }
+    const { atr } = await resetCard();
+    return `Card reset. ATR = ${atr || '(unavailable)'}`;
+  };
+
+  const sendApduCommand = async (hex: string): Promise<string> => {
+    if (!activeReaderId) {
+      return 'No active reader. Connect a reader first.';
+    }
+    const cleaned = hex.replace(/\s+/g, '');
+    if (cleaned.length < 8 || cleaned.length % 2 !== 0) {
+      return 'APDU must be a hex string of at least 4 bytes.';
+    }
+    const bytes = new Uint8Array(cleaned.length / 2);
+    for (let i = 0; i < bytes.length; i += 1) {
+      bytes[i] = Number.parseInt(cleaned.slice(i * 2, i * 2 + 2), 16);
+    }
+    const [cla, ins, p1, p2] = bytes;
+    let data: string | undefined;
+    if (bytes.length > 4) {
+      data = Array.from(bytes.slice(4), (byte) =>
+        byte.toString(16).padStart(2, '0'),
+      ).join('');
+    }
+    const response = await sendApdu({ cla, ins, p1, p2, data });
+    return [
+      `SW = ${response.sw.toString(16).padStart(4, '0').toUpperCase()}`,
+      response.data ? `Data = ${response.data}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n');
   };
 
   const handleAddMenuItemClick = (item: (typeof ADD_MENU_ITEMS)[0]) => {
@@ -491,47 +591,71 @@ export function SmartCardConsole({
                 >
                   <Usb className={styles.readerIcon} />
                   <span className={styles.readerName}>
-                    {selectedReader.name}
+                    {selectedReader?.name ?? 'No reader'}
                   </span>
                   <ChevronDown className={styles.readerChevron} />
+                </button>
+                <button
+                  className={styles.connectButton}
+                  onClick={handleConnectToggle}
+                  disabled={!selectedReader || connecting}
+                  title={
+                    isSelectedConnected ? 'Disconnect reader' : 'Connect reader'
+                  }
+                >
+                  {isSelectedConnected ? (
+                    <Unplug className={styles.connectButtonIcon} />
+                  ) : (
+                    <Plug className={styles.connectButtonIcon} />
+                  )}
                 </button>
                 {showReaderMenu && (
                   <div className={styles.readerMenu}>
                     <div className={styles.readerMenuTitle}>Select Reader</div>
-                    {READERS.map((reader) => (
-                      <button
-                        key={reader.id}
-                        className={[
-                          styles.readerMenuItem,
-                          selectedReader.id === reader.id
-                            ? styles.readerMenuItemActive
-                            : undefined,
-                        ]
-                          .filter(Boolean)
-                          .join(' ')}
-                        onClick={() => {
-                          setSelectedReader(reader);
-                          setShowReaderMenu(false);
-                        }}
-                      >
-                        <Usb className={styles.readerMenuItemIcon} />
-                        <span className={styles.readerMenuItemName}>
-                          {reader.name}
-                        </span>
-                        <span
+                    {readers.length === 0 ? (
+                      <div className={styles.readerMenuEmpty}>
+                        No readers detected
+                      </div>
+                    ) : (
+                      readers.map((reader) => (
+                        <button
+                          key={reader.id}
                           className={[
-                            styles.readerMenuItemStatus,
-                            reader.status === 'connected'
-                              ? styles.statusConnected
-                              : styles.statusDisconnected,
+                            styles.readerMenuItem,
+                            selectedReader?.id === reader.id
+                              ? styles.readerMenuItemActive
+                              : undefined,
                           ]
                             .filter(Boolean)
                             .join(' ')}
+                          onClick={() => {
+                            setSelectedReader(reader);
+                            setShowReaderMenu(false);
+                          }}
                         >
-                          {reader.status}
-                        </span>
-                      </button>
-                    ))}
+                          <Usb className={styles.readerMenuItemIcon} />
+                          <span className={styles.readerMenuItemName}>
+                            {reader.name}
+                          </span>
+                          <span
+                            className={[
+                              styles.readerMenuItemStatus,
+                              reader.id === activeReaderId
+                                ? styles.statusConnected
+                                : styles.statusDisconnected,
+                            ]
+                              .filter(Boolean)
+                              .join(' ')}
+                          >
+                            {reader.id === activeReaderId
+                              ? 'connected'
+                              : reader.cardPresent
+                                ? 'present'
+                                : 'disconnected'}
+                          </span>
+                        </button>
+                      ))
+                    )}
                   </div>
                 )}
               </div>

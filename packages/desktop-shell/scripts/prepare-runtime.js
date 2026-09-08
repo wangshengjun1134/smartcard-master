@@ -98,6 +98,7 @@ try {
   copyDirectory(distDir, libDir);
   await installNodeRuntime(nodeDir, target);
   writeLaunchers(target);
+  buildSidecar(binDir, target);
   copyRequiredFile(
     path.join(sourceRoot, 'LICENSE'),
     path.join(packageRoot, 'LICENSE'),
@@ -290,6 +291,27 @@ function writeLaunchers(desktopTarget) {
   const launcherPath = path.join(binDir, 'qwen');
   fs.writeFileSync(launcherPath, launcher);
   fs.chmodSync(launcherPath, 0o755);
+}
+
+function buildSidecar(destinationDir, desktopTarget) {
+  const sidecarRoot = path.join(packageDir, 'src-tauri', 'smartcard-sidecar');
+  if (!skipBuild) {
+    execFileSync(
+      'cargo',
+      [
+        'build',
+        '--release',
+        '--manifest-path',
+        path.join(sidecarRoot, 'Cargo.toml'),
+      ],
+      { stdio: 'inherit' },
+    );
+  }
+  const binaryName = desktopTarget.startsWith('win32-')
+    ? 'smartcard-sidecar.exe'
+    : 'smartcard-sidecar';
+  const sourceBinary = path.join(sidecarRoot, 'target', 'release', binaryName);
+  copyRequiredFile(sourceBinary, path.join(destinationDir, binaryName));
 }
 
 function copyRequiredFile(source, destination) {
