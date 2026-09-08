@@ -2451,7 +2451,10 @@ export async function loadCliConfig(
   // Smart-card support: the desktop host exposes a process-level reader
   // connection. Each runtime process (daemon or overlay child) owns its own
   // transport; PC/SC shared mode lets them coexist on one reader.
-  if (process.env['QWEN_CODE_DESKTOP'] === '1') {
+  if (
+    process.env['QWEN_CODE_DESKTOP'] === '1' ||
+    process.env['QWEN_SMARTCARD_SIDECAR']
+  ) {
     config.setSmartCardRuntime(createSmartCardRuntime());
   }
 

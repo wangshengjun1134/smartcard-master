@@ -4207,6 +4207,7 @@ async function runQwenServeImpl(
         : undefined,
     QWEN_SERVE_MCP_BUDGET_MODE: opts.mcpBudgetMode,
     QWEN_SERVE_CDP_TUNNEL_OVER_WS: opts.cdpTunnelOverWs ? '1' : undefined,
+    QWEN_SMARTCARD_SIDECAR: process.env['QWEN_SMARTCARD_SIDECAR'],
     [PRIVATE_EXTERNAL_TOOL_GUARD_ENV]: EXTERNAL_TOOL_GUARD_REQUIRED_VALUE,
     [PRIVATE_EXTERNAL_TOOL_GUARD_PROVIDER_ENV]: externalToolGuardHandler
       ? EXTERNAL_TOOL_GUARD_PROVIDER_ATTACHED_VALUE
