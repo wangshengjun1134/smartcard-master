@@ -23,6 +23,22 @@ export type {
   SkillStatus,
   WaitAction,
 } from './types.js';
+export type {
+  SkillToRuntimeMessage,
+  RuntimeToSkillMessage,
+  SkillActionMessage,
+  SkillFinishMessage,
+  SkillOutputMessage,
+  RuntimeStartMessage,
+  RuntimeActionResultMessage,
+  RuntimeStopMessage,
+  ApduCommandData,
+  ApduResponseData,
+} from './ipc-protocol.js';
+export type { SkillExecutionHandle, SkillHost } from './skill-host.js';
+export { ProcessNodeHost } from './process-node-host.js';
+export { ProcessPythonHost } from './process-python-host.js';
+export { SkillRuntime } from './skill-runtime.js';
 export { ActionExecutor } from './action-executor.js';
 export { SkillExecutor } from './skill-executor.js';
 export { SmartCardRuntime } from './smartcard-runtime.js';

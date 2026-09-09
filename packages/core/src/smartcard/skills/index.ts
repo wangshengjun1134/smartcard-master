@@ -8,12 +8,15 @@ export type {
   Skill,
   SkillCategory,
   SkillContext,
+  SkillDefinition,
   SkillExecutionResult,
   SkillInput,
+  SkillRuntimeMeta,
   SkillSession,
   SkillSessionStatus,
 } from './types.js';
 export { SkillRegistry } from './registry.js';
+export { SkillPackageLoader } from './package-loader.js';
 export { continueWith, failed, success } from './result.js';
 export { SimpleApduSession, SimpleApduSkill } from './simple-apdu-skill.js';
 export { Scp02Skill } from './scp02/index.js';

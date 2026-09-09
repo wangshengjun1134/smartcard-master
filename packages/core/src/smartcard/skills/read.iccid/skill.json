@@ -1,0 +1,12 @@
+{
+  "skillId": "read.iccid",
+  "version": "1.0.0",
+  "name": "Read ICCID",
+  "description": "Read the ICCID from a SIM card using GET STATUS and READ BINARY commands.",
+  "category": "filesystem",
+  "runtime": {
+    "type": "python",
+    "version": "3.10+"
+  },
+  "entry": "main.py"
+}

@@ -20,6 +20,26 @@ export type SkillCategory =
   | 'authentication'
   | 'custom';
 
+/** Runtime metadata from skill.json (design doc v2.4 §3). */
+export interface SkillRuntimeMeta {
+  type: 'node' | 'python' | 'java';
+  version?: string;
+}
+
+/**
+ * Skill definition from skill.json manifest.
+ * Design doc v2.4 §3: each skill package contains skill.json.
+ */
+export interface SkillDefinition {
+  skillId: string;
+  version: string;
+  name: string;
+  description: string;
+  category: SkillCategory;
+  runtime: SkillRuntimeMeta;
+  entry: string;
+}
+
 /** Lifecycle status of a single skill execution. */
 export type SkillSessionStatus = 'RUNNING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
 

@@ -12,13 +12,16 @@ import type {
 } from '../transport/types.js';
 import type {
   Skill,
+  SkillDefinition,
   SkillExecutionResult,
   SkillInput,
 } from '../skills/types.js';
 import { apduToBytes, bytesToHex } from '../bytes.js';
 import { SkillRegistry } from '../skills/registry.js';
+import { SkillPackageLoader } from '../skills/package-loader.js';
 import { ActionExecutor } from './action-executor.js';
 import { SkillExecutor } from './skill-executor.js';
+import { SkillRuntime } from './skill-runtime.js';
 import { OperationLog, type SmartCardOperation } from './operation-log.js';
 import type { CardSession } from './types.js';
 
@@ -32,6 +35,8 @@ export class SmartCardRuntime {
   private readonly registry: SkillRegistry;
   private readonly actionExecutor: ActionExecutor;
   private readonly skillExecutor: SkillExecutor;
+  private readonly skillRuntime: SkillRuntime;
+  private readonly packageLoader: SkillPackageLoader;
   private readonly operationLog = new OperationLog();
   private readerId: string | null = null;
   private atr: string | null = null;
@@ -47,6 +52,8 @@ export class SmartCardRuntime {
     this.skillExecutor = new SkillExecutor(this.actionExecutor, () =>
       this.getCardSession(),
     );
+    this.skillRuntime = new SkillRuntime();
+    this.packageLoader = new SkillPackageLoader();
   }
 
   getCardSession(): CardSession {
@@ -133,6 +140,86 @@ export class SmartCardRuntime {
     return this.registry.setEnabled(skillId, enabled);
   }
 
+  /**
+   * Load skill packages from a directory and register them.
+   * Design doc v2.4 §9: discovers skill.json manifests and validates them.
+   */
+  loadSkillsFromDirectory(dir: string): SkillDefinition[] {
+    const definitions = this.packageLoader.scanDirectory(dir);
+    for (const def of definitions) {
+      // For node skills, we still need the in-process Skill implementation
+      // For python skills, they run out-of-process via SkillRuntime
+      this.registry.register(createSkillAdapter(def));
+    }
+    return definitions;
+  }
+
+  /**
+   * Execute a skill via the multi-language runtime.
+   * For node/python skills that run in separate processes.
+   */
+  async executeSkillViaRuntime(
+    skillId: string,
+    packagePath: string,
+    input: SkillInput,
+  ): Promise<SkillExecutionResult> {
+    const def = this.registry.get(skillId);
+    if (!def) {
+      return {
+        status: 'FAILED',
+        error: `Skill "${skillId}" is not registered.`,
+        events: [],
+      };
+    }
+
+    // Get the skill definition from the registry
+    const skillDef = (def as unknown as { definition?: SkillDefinition })
+      .definition;
+    if (!skillDef) {
+      return {
+        status: 'FAILED',
+        error: `Skill "${skillId}" does not have a package definition.`,
+        events: [],
+      };
+    }
+
+    try {
+      const handle = await this.skillRuntime.start(skillDef, packagePath);
+
+      // Send start message
+      handle.send({
+        type: 'start',
+        executionId: handle.executionId,
+        skillId: skillDef.skillId,
+        input,
+        cardSession: this.getCardSession(),
+      });
+
+      // Wait for completion
+      const result = await handle.finished();
+
+      if (result.type === 'execution_finished') {
+        return {
+          status: result.status,
+          error: result.error,
+          events: [], // Output events would be collected via IPC in a full implementation
+        };
+      }
+
+      return {
+        status: 'FAILED',
+        error: 'Unexpected message type from skill',
+        events: [],
+      };
+    } catch (err) {
+      return {
+        status: 'FAILED',
+        error: err instanceof Error ? err.message : String(err),
+        events: [],
+      };
+    }
+  }
+
   async executeSkill(
     skillId: string,
     input: SkillInput,
@@ -150,7 +237,38 @@ export class SmartCardRuntime {
 
   async close(): Promise<void> {
     await this.transport.close();
+    await this.skillRuntime.dispose();
     this.readerId = null;
     this.atr = null;
   }
+}
+
+/**
+ * Create a Skill adapter wrapper that holds the SkillDefinition.
+ * This allows the runtime to access the definition for multi-language execution.
+ */
+function createSkillAdapter(def: SkillDefinition): Skill {
+  return {
+    skillId: def.skillId,
+    name: def.name,
+    description: def.description,
+    category: def.category,
+    enabled: true,
+    definition: def,
+    createSession() {
+      throw new Error(
+        'Out-of-process skills do not support in-process sessions',
+      );
+    },
+    start() {
+      throw new Error(
+        'Out-of-process skills must be executed via executeSkillViaRuntime',
+      );
+    },
+    handleResult() {
+      throw new Error(
+        'Out-of-process skills do not support in-process handling',
+      );
+    },
+  } as unknown as Skill;
 }

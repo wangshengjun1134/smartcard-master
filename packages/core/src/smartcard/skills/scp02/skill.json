@@ -1,0 +1,12 @@
+{
+  "skillId": "scp02.open",
+  "version": "1.0.0",
+  "name": "SCP02 Open Secure Channel",
+  "description": "Establish a GlobalPlatform SCP02 secure channel with the card.",
+  "category": "security",
+  "runtime": {
+    "type": "node",
+    "version": "22+"
+  },
+  "entry": "index.ts"
+}
