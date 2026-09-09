@@ -11,9 +11,7 @@ import {
   Kind,
 } from '../../tools/tools.js';
 import { ToolNames, ToolDisplayNames } from '../../tools/tool-names.js';
-import type { Config } from '../../config/config.js';
-import { requireSmartCardRuntime } from './context.js';
-import { bytesToHex, hexToBytes } from '../bytes.js';
+import { smartcardSendApdu } from '../daemon-client.js';
 
 export interface SmartCardSendApduParams {
   cla: number;
@@ -28,10 +26,7 @@ class SmartCardSendApduInvocation extends BaseToolInvocation<
   SmartCardSendApduParams,
   ToolResult
 > {
-  constructor(
-    private readonly config: Config,
-    params: SmartCardSendApduParams,
-  ) {
+  constructor(params: SmartCardSendApduParams) {
     super(params);
   }
 
@@ -40,21 +35,20 @@ class SmartCardSendApduInvocation extends BaseToolInvocation<
   }
 
   async execute(): Promise<ToolResult> {
-    const runtime = requireSmartCardRuntime(this.config);
-    const response = await runtime.sendApdu({
+    const response = await smartcardSendApdu({
       cla: this.params.cla,
       ins: this.params.ins,
       p1: this.params.p1,
       p2: this.params.p2,
-      ...(this.params.data !== undefined
-        ? { data: hexToBytes(this.params.data) }
-        : {}),
+      ...(this.params.data !== undefined ? { data: this.params.data } : {}),
       ...(this.params.le !== undefined ? { le: this.params.le } : {}),
     });
 
     const sw = response.sw.toString(16).padStart(4, '0').toUpperCase();
-    const data = bytesToHex(response.data);
-    const content = [`SW = ${sw}`, data ? `Data = ${data}` : '']
+    const content = [
+      `SW = ${sw}`,
+      response.data ? `Data = ${response.data}` : '',
+    ]
       .filter(Boolean)
       .join('\n');
     return { llmContent: content, returnDisplay: content };
@@ -67,7 +61,7 @@ export class SmartCardSendApduTool extends BaseDeclarativeTool<
 > {
   static readonly Name = ToolNames.SMARTCARD_SEND_APDU;
 
-  constructor(private readonly config: Config) {
+  constructor() {
     super(
       SmartCardSendApduTool.Name,
       ToolDisplayNames.SMARTCARD_SEND_APDU,
@@ -104,6 +98,6 @@ export class SmartCardSendApduTool extends BaseDeclarativeTool<
   protected createInvocation(
     params: SmartCardSendApduParams,
   ): ToolInvocation<SmartCardSendApduParams, ToolResult> {
-    return new SmartCardSendApduInvocation(this.config, params);
+    return new SmartCardSendApduInvocation(params);
   }
 }

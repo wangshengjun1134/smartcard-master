@@ -151,3 +151,111 @@ APDU 的 `data` 为 hex 字符串（空字符串表示无数据）。
 5. 移除 pcsclite 相关代码与依赖；
 6. 集成编译分发：prepare-runtime.js 编译 sidecar + runtime.rs 注入环境变量；
 7. 端到端验证：前端 console 连接/断开/发 APDU、SCP02 skill 执行。
+
+---
+
+## 10. 统一连接与操作日志：让 Agent 执行的 APDU / Skill 输出在 UI 可见（v1.1 增补）
+
+### 10.1 背景与问题
+
+第 3 节已声明「daemon 唯一持有读卡器连接」，但当前实现并未完全落地——**ACP child 也自建了 sidecar**：
+
+- `config.ts` 在每个进程（daemon 和 ACP child）里，只要 `QWEN_CODE_DESKTOP === '1'` 或 `QWEN_SMARTCARD_SIDECAR` 存在，就各自 `createSmartCardRuntime()`。
+- daemon 通过 `childEnvOverrides` 把 `QWEN_SMARTCARD_SIDECAR` 传给 ACP child，child 据此 spawn 自己的 sidecar。
+- 因此实际存在**两条互不相知的读卡器连接**：
+
+```
+console (web-shell) ──HTTP──► daemon runtime ──► sidecar A ──► PC/SC
+agent tool (ACP child) ─────► child runtime ──► sidecar B ──► PC/SC
+```
+
+后果：
+
+1. **Agent 执行的 APDU 在 console 不可见**：console 手动 `/apdu` 能显示（走 daemon 的 sidecar A），但 agent 通过 tool/skill 执行的 APDU 走 child 的 sidecar B，console 完全看不到请求/响应。
+2. **Skill 输出也传不到 UI**：skill 的 `SkillOutputSink` 事件（text/info/warn/error/data）在 child 的 `SkillExecutor` 里产生，同样困在 child 进程内。
+3. 额外发现：daemon 进程内其实有**两个** runtime——`config.ts` 建了一个（`setSmartCardRuntime`），`server.ts` 的 `registerSmartCardRoutes` 又 `createSmartCardRuntime()` 建了一个（console 用的是后者）。
+
+### 10.2 目标架构
+
+让 **daemon 成为唯一的读卡器连接 + 操作日志 owner**，ACP child 的 smartcard tool 全部改为调用 daemon 的 HTTP 接口（与 console 走同一条路）。所有 APDU 与 skill 输出都在 daemon 单点产生，UI 订阅该点即可全量可见。
+
+```
+console (web-shell) ───HTTP───┐
+                              ├──► daemon 唯一 runtime ──► 唯一 sidecar ──► PC/SC
+agent tool (ACP child) ──HTTP──┘            │
+                                     操作日志 ring buffer ──SSE──► console
+```
+
+要点：
+
+1. **单连接、单状态**：读卡器连接（`readerId`/`atr`）只由 daemon 的 runtime 持有；child 不再维护本地状态，只做转发。
+2. **操作日志在 daemon**：每次 APDU 请求/响应、connect/disconnect/reset、skill 事件都写入 daemon 内存中的 ring buffer（带条数上限）。
+3. **SSE 推送**：daemon 新增 `GET /smartcard/events`（SSE），连接时先回放最近 N 条，之后实时推送。
+
+### 10.3 两个显示目标
+
+| 内容                                            | 显示位置             | 通道                                                           |
+| ----------------------------------------------- | -------------------- | -------------------------------------------------------------- |
+| APDU 请求/响应（所有来源：手动、tool、skill）   | **console 面板**     | daemon 操作日志 → `GET /smartcard/events` SSE                  |
+| Skill 输出（text/info/warn/error/data，含流式） | **聊天主窗口内容区** | `execute-skill` tool 的流式输出（复用 `canUpdateOutput` 机制） |
+
+### 10.4 ACP child 侧：tool 改为 HTTP 客户端
+
+新增 `packages/core/src/smartcard/daemon-client.ts`（Node 侧 `fetch` 封装，对齐 web-shell 已有的 `smartcard-api.ts`），从环境变量读取 daemon 地址与凭据，提供 `listReaders/connect/disconnect/reset/sendApdu/executeSkill`。
+
+五个 tool 的 `execute()` 全部改为调用 daemon-client：
+
+| tool            | 目标路由                                                      |
+| --------------- | ------------------------------------------------------------- |
+| `connect`       | `GET /smartcard/readers`（无参时）/ `POST /smartcard/connect` |
+| `disconnect`    | `POST /smartcard/disconnect`                                  |
+| `reset`         | `POST /smartcard/reset`                                       |
+| `send-apdu`     | `POST /smartcard/apdu`                                        |
+| `execute-skill` | `POST /smartcard/skills/:id/execute`                          |
+
+关键点：**skill 在 daemon 执行**（`execute-skill` 调 daemon 路由），这样 skill 的 APDU 走 daemon sidecar（进操作日志 → console 可见），skill 的输出事件在 daemon 产生、可流式回传。
+
+### 10.5 操作日志与流式输出
+
+- **操作日志**（新增 `packages/core/src/smartcard/runtime/operation-log.ts`）：内存 ring buffer，记录 APDU 请求 hex + 响应 SW/data、connect/disconnect/reset、skill 事件（start/end/text/info/warn/error/data）。
+- **`smartcard-runtime.ts`**：在 `sendApdu/connect/disconnect/reset` 处发操作事件；**`skill-executor.ts`** 的 `SkillOutputSink` 改为实时 emit（不再只是最后一次性返回的 `events` 数组，`events` 仍保留用于返回值）。
+- **流式 skill 输出到聊天窗口**：`POST /smartcard/skills/:id/execute` 支持 SSE 流式返回 skill 事件；child 的 `execute-skill` tool 消费该 SSE，通过 `canUpdateOutput` 实时更新推送到聊天窗口（复用现有 tool 输出流式机制，参照 `AgentTool`）。首版可先返回完整结果（非流式），流式作为增量。
+
+### 10.6 通信与认证（安全不放松）
+
+- daemon 在 `run-qwen-serve.ts` 的 `childEnvOverrides` 中**移除** `QWEN_SMARTCARD_SIDECAR`，改为注入：
+  - `QWEN_SMARTCARD_DAEMON_URL`：daemon 地址（复用现有 `formatChannelWorkerDaemonUrl` 得到 loopback URL）。
+  - `QWEN_SMARTCARD_DAEMON_TOKEN`：smartcard 专用凭据，仅 `/smartcard/*` 路由接受（值可复用 daemon bearer token，通过「专用 env 名 + 仅 smartcard 路由校验」实现作用域收敛；或单独生成一个 scoped token）。
+- 全局 `QWEN_SERVER_TOKEN` 校验不动，也不把 `QWEN_SERVER_TOKEN` 塞进 child env（保留 `spawnChannel.ts` 现有的 strip 机制）。
+
+### 10.7 改动清单
+
+| 位置                                                                  | 改动                                                                                                      |
+| --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `packages/core/src/smartcard/daemon-client.ts`                        | **新增**：child 侧 HTTP 客户端（读 daemon URL + 凭据，`fetch` 封装）                                      |
+| `packages/core/src/smartcard/runtime/operation-log.ts`                | **新增**：操作日志 ring buffer                                                                            |
+| `packages/core/src/smartcard/runtime/smartcard-runtime.ts`            | 增加操作事件 emit（apdu/connect/disconnect/reset/skill）                                                  |
+| `packages/core/src/smartcard/runtime/skill-executor.ts`               | `SkillOutputSink` 实时 emit（而非仅收集）                                                                 |
+| `packages/core/src/smartcard/tools/send-apdu.ts`                      | `execute()` 改为调 daemon-client                                                                          |
+| `packages/core/src/smartcard/tools/connect.ts`                        | 同上                                                                                                      |
+| `packages/core/src/smartcard/tools/disconnect.ts`                     | 同上                                                                                                      |
+| `packages/core/src/smartcard/tools/reset.ts`                          | 同上                                                                                                      |
+| `packages/core/src/smartcard/tools/execute-skill.ts`                  | 同上（调用 `/skills/:id/execute`，消费 SSE 流式输出）                                                     |
+| `packages/core/src/smartcard/tools/context.ts`                        | 改为提供 daemon-client（或移除 `requireSmartCardRuntime` 的使用）                                         |
+| `packages/cli/src/config/config.ts`                                   | 仅 daemon 进程创建真实 runtime（sidecar）；child 不再创建本地 runtime                                     |
+| `packages/cli/src/serve/run-qwen-serve.ts`                            | `childEnvOverrides` 移除 `QWEN_SMARTCARD_SIDECAR`，注入 daemon URL + scoped 凭据                          |
+| `packages/cli/src/serve/routes/workspace-smartcard.ts`                | 新增 `GET /smartcard/events`（SSE，回放+推送）；smartcard 路由额外接受 scoped 凭据；接入操作日志          |
+| `packages/cli/src/serve/server.ts`                                    | 合并 daemon 内的两个 runtime 为同一个（复用 `config` 上的实例，供路由与日志共用）                         |
+| `packages/web-shell/client/components/smartcard/SmartCardConsole.tsx` | 用 `EventSource` 订阅 `/smartcard/events`，渲染 APDU 请求/响应（手动 `/apdu` 也统一走日志，避免重复显示） |
+| `packages/web-shell/client/components/smartcard/smartcard-api.ts`     | 增加 events 订阅 helper                                                                                   |
+
+### 10.8 实施步骤
+
+1. 新增 `daemon-client.ts`（child 侧 HTTP 客户端）与 `operation-log.ts`（ring buffer）。
+2. `smartcard-runtime.ts` / `skill-executor.ts` 增加操作事件 emit。
+3. 五个 tool 的 `execute()` 改为调用 daemon-client；调整 `context.ts`。
+4. `config.ts` 仅 daemon 创建真实 runtime；`run-qwen-serve.ts` 改 childEnvOverrides。
+5. `server.ts` 合并双 runtime；`workspace-smartcard.ts` 新增 `/smartcard/events` SSE + scoped 凭据校验 + 操作日志接入。
+6. `SmartCardConsole.tsx` 订阅 SSE 渲染 APDU；`smartcard-api.ts` 增加订阅 helper。
+7. 单元测试：操作日志、daemon-client（mock fetch）、tool 的 HTTP 调用路径。
+8. 端到端验证：console 手动 `/apdu`、agent tool `/apdu`、SCP02 skill 三者执行后，APDU 请求/响应均在 console 显示；skill 输出在聊天主窗口显示。

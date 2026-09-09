@@ -27,7 +27,9 @@ import {
   listReaders,
   resetCard,
   sendApdu,
+  subscribeToOperations,
   type ReaderInfo,
+  type SmartCardOperation,
 } from './smartcard-api.js';
 
 // Mock data for slash commands
@@ -67,6 +69,28 @@ const ADD_MENU_ITEMS = [
   { name: 'Upload File', description: 'Upload a file', action: 'upload' },
   { name: 'Attach Image', description: 'Attach an image', action: 'image' },
 ];
+
+/** Render a smart-card operation into a console line. */
+function formatOperation(op: SmartCardOperation): string {
+  switch (op.type) {
+    case 'apdu': {
+      const sw = op.sw.toString(16).padStart(4, '0').toUpperCase();
+      return [
+        `APDU ${op.request}`,
+        `SW = ${sw}`,
+        op.response ? `Data = ${op.response}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n');
+    }
+    case 'connect':
+      return `Connected to "${op.readerId}". ATR = ${op.atr || '(unavailable)'}`;
+    case 'disconnect':
+      return 'Disconnected from the smart card reader.';
+    case 'reset':
+      return `Card reset. ATR = ${op.atr || '(unavailable)'}`;
+  }
+}
 
 export interface SmartCardConsoleProps {
   className?: string;
@@ -145,6 +169,20 @@ export function SmartCardConsole({
     void refreshReaders();
   }, [refreshReaders]);
 
+  // Subscribe to the daemon operation log so every APDU (manual, agent tool,
+  // or skill) and every connect/disconnect/reset shows up in the console.
+  useEffect(() => {
+    const controller = new AbortController();
+    subscribeToOperations(
+      (op) => addConsoleLine(formatOperation(op), 'output'),
+      controller.signal,
+    ).catch(() => {
+      // No daemon or stream unavailable: the console stays usable in a
+      // degraded state; explicit commands surface errors themselves.
+    });
+    return () => controller.abort();
+  }, [addConsoleLine]);
+
   const handleConnectToggle = useCallback(async () => {
     if (!selectedReader) return;
     setConnecting(true);
@@ -152,14 +190,9 @@ export function SmartCardConsole({
       if (isSelectedConnected) {
         await disconnectReader();
         setActiveReaderId(null);
-        addConsoleLine('Reader disconnected.', 'output');
       } else {
-        const { atr } = await connectReader(selectedReader.id);
+        await connectReader(selectedReader.id);
         setActiveReaderId(selectedReader.id);
-        addConsoleLine(
-          `Connected to "${selectedReader.name}". ATR = ${atr || '(unavailable)'}`,
-          'output',
-        );
       }
       await refreshReaders();
     } catch (error) {
@@ -312,7 +345,9 @@ export function SmartCardConsole({
 
     try {
       const response = await executeCommand(raw);
-      addConsoleLine(response, 'output');
+      if (response) {
+        addConsoleLine(response, 'output');
+      }
     } catch (error) {
       addConsoleLine(
         error instanceof Error ? error.message : String(error),
@@ -363,8 +398,9 @@ export function SmartCardConsole({
     if (!activeReaderId) {
       return 'No active reader. Connect a reader first.';
     }
-    const { atr } = await resetCard();
-    return `Card reset. ATR = ${atr || '(unavailable)'}`;
+    await resetCard();
+    // The reset operation is rendered from the /smartcard/events stream.
+    return '';
   };
 
   const sendApduCommand = async (hex: string): Promise<string> => {
@@ -386,13 +422,9 @@ export function SmartCardConsole({
         byte.toString(16).padStart(2, '0'),
       ).join('');
     }
-    const response = await sendApdu({ cla, ins, p1, p2, data });
-    return [
-      `SW = ${response.sw.toString(16).padStart(4, '0').toUpperCase()}`,
-      response.data ? `Data = ${response.data}` : '',
-    ]
-      .filter(Boolean)
-      .join('\n');
+    await sendApdu({ cla, ins, p1, p2, data });
+    // The APDU exchange is rendered from the /smartcard/events stream.
+    return '';
   };
 
   const handleAddMenuItemClick = (item: (typeof ADD_MENU_ITEMS)[0]) => {

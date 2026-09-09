@@ -4,32 +4,58 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { Application, RequestHandler } from 'express';
+import express, { type Application } from 'express';
 import {
   bytesToHex,
   hexToBytes,
   type SmartCardRuntime,
 } from '@qwen-code/qwen-code-core';
+import { bearerAuth } from '../auth.js';
+import {
+  singleTokenCredentials,
+  type ListenerScopedCredentials,
+} from '../local-control/credentials.js';
 import type { SendBridgeError } from '../server/error-response.js';
 
 interface RegisterSmartCardRoutesDeps {
   runtime: SmartCardRuntime;
-  mutate: (opts?: { strict?: boolean }) => RequestHandler;
+  /** The daemon's operator bearer token (Web Shell console clients). */
+  mainToken?: string;
+  /** Scoped token handed to the ACP child for its smart-card tools. */
+  scopedToken?: string;
   sendBridgeError: SendBridgeError;
+}
+
+/** Credential accepting either the operator token or the scoped smart-card token. */
+function dualTokenCredentials(
+  mainToken: string | undefined,
+  scopedToken: string | undefined,
+): ListenerScopedCredentials {
+  const main = singleTokenCredentials(mainToken);
+  const scoped = singleTokenCredentials(scopedToken);
+  return {
+    isOpen: (listener) => main.isOpen(listener) && scoped.isOpen(listener),
+    verify: (candidate, listener) =>
+      main.verify(candidate, listener) || scoped.verify(candidate, listener),
+  };
 }
 
 /**
  * Process-level smart-card routes. The reader connection is a process-wide
  * resource, so these routes are NOT workspace-qualified; the single runtime
- * instance is shared by the console and (eventually) agent tools.
+ * instance is shared by the console and the agent tools (via the ACP child's
+ * daemon-client). Registered before the global bearer gate; each route enforces
+ * its own dual-token auth.
  */
 export function registerSmartCardRoutes(
   app: Application,
   deps: RegisterSmartCardRoutesDeps,
 ): void {
-  const { runtime, mutate, sendBridgeError } = deps;
+  const { runtime, mainToken, scopedToken, sendBridgeError } = deps;
+  const auth = bearerAuth(dualTokenCredentials(mainToken, scopedToken));
+  const parseJson = express.json();
 
-  app.get('/smartcard/readers', async (_req, res) => {
+  app.get('/smartcard/readers', auth, async (_req, res) => {
     try {
       const readers = await runtime.listReaders();
       res.status(200).json({
@@ -41,7 +67,7 @@ export function registerSmartCardRoutes(
     }
   });
 
-  app.post('/smartcard/connect', mutate(), async (req, res) => {
+  app.post('/smartcard/connect', auth, parseJson, async (req, res) => {
     const readerId = req.body?.['readerId'];
     if (typeof readerId !== 'string' || !readerId.trim()) {
       res.status(400).json({
@@ -58,7 +84,7 @@ export function registerSmartCardRoutes(
     }
   });
 
-  app.post('/smartcard/disconnect', mutate(), async (_req, res) => {
+  app.post('/smartcard/disconnect', auth, parseJson, async (_req, res) => {
     try {
       await runtime.disconnect();
       res.status(200).json({ session: runtime.getCardSession() });
@@ -67,7 +93,7 @@ export function registerSmartCardRoutes(
     }
   });
 
-  app.post('/smartcard/reset', mutate(), async (_req, res) => {
+  app.post('/smartcard/reset', auth, parseJson, async (_req, res) => {
     try {
       const atr = await runtime.reset();
       res.status(200).json({ atr, session: runtime.getCardSession() });
@@ -76,7 +102,7 @@ export function registerSmartCardRoutes(
     }
   });
 
-  app.post('/smartcard/apdu', mutate(), async (req, res) => {
+  app.post('/smartcard/apdu', auth, parseJson, async (req, res) => {
     const body = req.body as Record<string, unknown> | undefined;
     const { cla, ins, p1, p2 } = body ?? {};
     if (
@@ -127,7 +153,7 @@ export function registerSmartCardRoutes(
     }
   });
 
-  app.get('/smartcard/skills', (_req, res) => {
+  app.get('/smartcard/skills', auth, (_req, res) => {
     res.status(200).json({
       skills: runtime.listSkills().map((skill) => ({
         skillId: skill.skillId,
@@ -138,23 +164,49 @@ export function registerSmartCardRoutes(
     });
   });
 
-  app.post('/smartcard/skills/:skillId/execute', mutate(), async (req, res) => {
-    const skillId = req.params['skillId'];
-    if (!skillId || typeof skillId !== 'string') {
-      res.status(400).json({
-        error: 'skillId path parameter is required',
-        code: 'invalid_skill_id',
-      });
-      return;
+  app.post(
+    '/smartcard/skills/:skillId/execute',
+    auth,
+    parseJson,
+    async (req, res) => {
+      const skillId = req.params['skillId'];
+      if (!skillId || typeof skillId !== 'string') {
+        res.status(400).json({
+          error: 'skillId path parameter is required',
+          code: 'invalid_skill_id',
+        });
+        return;
+      }
+      const input = (req.body?.['input'] as Record<string, unknown>) ?? {};
+      try {
+        const result = await runtime.executeSkill(skillId, input);
+        res.status(200).json(result);
+      } catch (err) {
+        sendBridgeError(res, err, {
+          route: 'POST /smartcard/skills/:skillId/execute',
+        });
+      }
+    },
+  );
+
+  // SSE stream of smart-card operations (APDU exchanges, connect/disconnect/
+  // reset). Replays the recent log on connect, then pushes live entries.
+  app.get('/smartcard/events', auth, (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    const write = (op: unknown): void => {
+      res.write(`data: ${JSON.stringify(op)}\n\n`);
+    };
+    for (const op of runtime.getOperations()) {
+      write(op);
     }
-    const input = (req.body?.['input'] as Record<string, unknown>) ?? {};
-    try {
-      const result = await runtime.executeSkill(skillId, input);
-      res.status(200).json(result);
-    } catch (err) {
-      sendBridgeError(res, err, {
-        route: 'POST /smartcard/skills/:skillId/execute',
-      });
-    }
+    const unsubscribe = runtime.onOperation(write);
+    req.on('close', () => {
+      unsubscribe();
+      res.end();
+    });
   });
 }

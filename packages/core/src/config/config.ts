@@ -61,6 +61,7 @@ import {
   type FileEncodingType,
 } from '../services/fileSystemService.js';
 import type { SmartCardRuntime } from '../smartcard/runtime/smartcard-runtime.js';
+import { hasSmartCardDaemonClient } from '../smartcard/daemon-client.js';
 import { cleanupStaleAgentWorktrees } from '../services/worktreeCleanup.js';
 import {
   CronScheduler,
@@ -9647,39 +9648,39 @@ export class Config {
       }
     }
     await this.registerImageGenerationTool(registry);
-    // Smart-card tools register only when a runtime has been wired in (desktop
-    // host with a PC/SC stack). In CLI mode the runtime stays null and these
-    // tools are simply absent from the model surface.
-    if (this.getSmartCardRuntime()) {
+    // Smart-card tools register when smart-card support is available in this
+    // process: either a local runtime (daemon host with a PC/SC stack) or a
+    // daemon proxy (ACP child that reaches the daemon over HTTP).
+    if (this.getSmartCardRuntime() || hasSmartCardDaemonClient()) {
       await registerLazy(ToolNames.SMARTCARD_CONNECT, async () => {
         const { SmartCardConnectTool } = await import(
           '../smartcard/tools/connect.js'
         );
-        return new SmartCardConnectTool(this);
+        return new SmartCardConnectTool();
       });
       await registerLazy(ToolNames.SMARTCARD_DISCONNECT, async () => {
         const { SmartCardDisconnectTool } = await import(
           '../smartcard/tools/disconnect.js'
         );
-        return new SmartCardDisconnectTool(this);
+        return new SmartCardDisconnectTool();
       });
       await registerLazy(ToolNames.SMARTCARD_SEND_APDU, async () => {
         const { SmartCardSendApduTool } = await import(
           '../smartcard/tools/send-apdu.js'
         );
-        return new SmartCardSendApduTool(this);
+        return new SmartCardSendApduTool();
       });
       await registerLazy(ToolNames.SMARTCARD_RESET, async () => {
         const { SmartCardResetTool } = await import(
           '../smartcard/tools/reset.js'
         );
-        return new SmartCardResetTool(this);
+        return new SmartCardResetTool();
       });
       await registerLazy(ToolNames.SMARTCARD_EXECUTE_SKILL, async () => {
         const { SmartCardExecuteSkillTool } = await import(
           '../smartcard/tools/execute-skill.js'
         );
-        return new SmartCardExecuteSkillTool(this);
+        return new SmartCardExecuteSkillTool();
       });
     }
     if (this.isArtifactEnabled()) {

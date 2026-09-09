@@ -11,8 +11,7 @@ import {
   Kind,
 } from '../../tools/tools.js';
 import { ToolNames, ToolDisplayNames } from '../../tools/tool-names.js';
-import type { Config } from '../../config/config.js';
-import { requireSmartCardRuntime } from './context.js';
+import { smartcardReset } from '../daemon-client.js';
 
 export type SmartCardResetParams = Record<string, never>;
 
@@ -20,10 +19,7 @@ class SmartCardResetInvocation extends BaseToolInvocation<
   SmartCardResetParams,
   ToolResult
 > {
-  constructor(
-    private readonly config: Config,
-    params: SmartCardResetParams,
-  ) {
+  constructor(params: SmartCardResetParams) {
     super(params);
   }
 
@@ -32,8 +28,7 @@ class SmartCardResetInvocation extends BaseToolInvocation<
   }
 
   async execute(): Promise<ToolResult> {
-    const runtime = requireSmartCardRuntime(this.config);
-    const atr = await runtime.reset();
+    const { atr } = await smartcardReset();
     const content = `Card reset. ATR = ${atr || '(unavailable)'}`;
     return { llmContent: content, returnDisplay: content };
   }
@@ -45,7 +40,7 @@ export class SmartCardResetTool extends BaseDeclarativeTool<
 > {
   static readonly Name = ToolNames.SMARTCARD_RESET;
 
-  constructor(private readonly config: Config) {
+  constructor() {
     super(
       SmartCardResetTool.Name,
       ToolDisplayNames.SMARTCARD_RESET,
@@ -68,6 +63,6 @@ export class SmartCardResetTool extends BaseDeclarativeTool<
   protected createInvocation(
     params: SmartCardResetParams,
   ): ToolInvocation<SmartCardResetParams, ToolResult> {
-    return new SmartCardResetInvocation(this.config, params);
+    return new SmartCardResetInvocation(params);
   }
 }

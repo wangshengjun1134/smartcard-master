@@ -26,3 +26,11 @@ export type {
 export { ActionExecutor } from './action-executor.js';
 export { SkillExecutor } from './skill-executor.js';
 export { SmartCardRuntime } from './smartcard-runtime.js';
+export { OperationLog } from './operation-log.js';
+export type {
+  ApduOperation,
+  ConnectOperation,
+  DisconnectOperation,
+  ResetOperation,
+  SmartCardOperation,
+} from './operation-log.js';

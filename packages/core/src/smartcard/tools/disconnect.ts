@@ -11,8 +11,7 @@ import {
   Kind,
 } from '../../tools/tools.js';
 import { ToolNames, ToolDisplayNames } from '../../tools/tool-names.js';
-import type { Config } from '../../config/config.js';
-import { requireSmartCardRuntime } from './context.js';
+import { smartcardDisconnect } from '../daemon-client.js';
 
 export type SmartCardDisconnectParams = Record<string, never>;
 
@@ -20,10 +19,7 @@ class SmartCardDisconnectInvocation extends BaseToolInvocation<
   SmartCardDisconnectParams,
   ToolResult
 > {
-  constructor(
-    private readonly config: Config,
-    params: SmartCardDisconnectParams,
-  ) {
+  constructor(params: SmartCardDisconnectParams) {
     super(params);
   }
 
@@ -32,8 +28,7 @@ class SmartCardDisconnectInvocation extends BaseToolInvocation<
   }
 
   async execute(): Promise<ToolResult> {
-    const runtime = requireSmartCardRuntime(this.config);
-    await runtime.disconnect();
+    await smartcardDisconnect();
     const content = 'Disconnected from the smart card reader.';
     return { llmContent: content, returnDisplay: content };
   }
@@ -45,7 +40,7 @@ export class SmartCardDisconnectTool extends BaseDeclarativeTool<
 > {
   static readonly Name = ToolNames.SMARTCARD_DISCONNECT;
 
-  constructor(private readonly config: Config) {
+  constructor() {
     super(
       SmartCardDisconnectTool.Name,
       ToolDisplayNames.SMARTCARD_DISCONNECT,
@@ -67,6 +62,6 @@ export class SmartCardDisconnectTool extends BaseDeclarativeTool<
   protected createInvocation(
     params: SmartCardDisconnectParams,
   ): ToolInvocation<SmartCardDisconnectParams, ToolResult> {
-    return new SmartCardDisconnectInvocation(this.config, params);
+    return new SmartCardDisconnectInvocation(params);
   }
 }

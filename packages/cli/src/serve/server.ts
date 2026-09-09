@@ -687,6 +687,12 @@ export interface ServeAppDeps {
   validateLiveProviderCredential?: (
     credential: LiveProviderCredential,
   ) => Promise<void>;
+  /**
+   * Scoped bearer token accepted only by the /smartcard/* routes, handed to
+   * the ACP child so its smart-card tools can reach the daemon's single reader
+   * connection without holding the full operator bearer token.
+   */
+  smartCardDaemonToken?: string;
 }
 
 /**
@@ -2082,6 +2088,21 @@ export function createServeApp(
     });
   }
 
+  // Smart-card routes expose the process-level reader connection (used by the
+  // Web Shell console and, via the ACP child's daemon-client, the agent
+  // tools). Registered BEFORE `authenticate` so the child's scoped token can
+  // reach them; each route enforces its own dual-token auth (operator bearer
+  // or the smart-card-scoped token). The runtime is the single daemon-owned
+  // instance and spawns its sidecar lazily on the first reader operation.
+  if (process.env['QWEN_CODE_DESKTOP'] === '1') {
+    registerSmartCardRoutes(app, {
+      runtime: createSmartCardRuntime(),
+      mainToken: opts.token,
+      scopedToken: deps.smartCardDaemonToken,
+      sendBridgeError,
+    });
+  }
+
   // Credentials are a listener-scoped set, not one token: while Local Control
   // is on, the LAN listener accepts a revocable pairing token and rejects the
   // runtime token, and the primary listener does the reverse. With no Local
@@ -2322,17 +2343,9 @@ export function createServeApp(
     deliverChannelMessage: deps.deliverChannelMessage,
   });
 
-  // Smart-card routes expose the process-level reader connection (used by the
-  // Web Shell console). Enabled only in the desktop host where a PC/SC stack
-  // is expected; the runtime object itself is lazy and does not touch native
-  // bindings until the first reader operation.
-  if (process.env['QWEN_CODE_DESKTOP'] === '1') {
-    registerSmartCardRoutes(app, {
-      runtime: createSmartCardRuntime(),
-      mutate,
-      sendBridgeError,
-    });
-  }
+  // Smart-card routes are registered before `authenticate` (see the call site
+  // above) so the ACP child's scoped token can reach them; the single runtime
+  // lives there.
 
   registerWorkspaceStatusRoutes(app, {
     boundWorkspace: primaryBoundWorkspace,

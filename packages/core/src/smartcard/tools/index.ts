@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { Config } from '../../config/config.js';
 import type { ToolRegistry } from '../../tools/tool-registry.js';
 import { SmartCardConnectTool } from './connect.js';
 import { SmartCardDisconnectTool } from './disconnect.js';
@@ -22,13 +21,10 @@ export { SmartCardResetTool } from './reset.js';
 export { SmartCardExecuteSkillTool } from './execute-skill.js';
 
 /** Register all smart-card tools eagerly against the given registry. */
-export function registerSmartCardTools(
-  registry: ToolRegistry,
-  config: Config,
-): void {
-  registry.registerTool(new SmartCardConnectTool(config));
-  registry.registerTool(new SmartCardDisconnectTool(config));
-  registry.registerTool(new SmartCardSendApduTool(config));
-  registry.registerTool(new SmartCardResetTool(config));
-  registry.registerTool(new SmartCardExecuteSkillTool(config));
+export function registerSmartCardTools(registry: ToolRegistry): void {
+  registry.registerTool(new SmartCardConnectTool());
+  registry.registerTool(new SmartCardDisconnectTool());
+  registry.registerTool(new SmartCardSendApduTool());
+  registry.registerTool(new SmartCardResetTool());
+  registry.registerTool(new SmartCardExecuteSkillTool());
 }

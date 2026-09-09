@@ -130,3 +130,52 @@ export async function executeSkill(
     body: JSON.stringify({ input }),
   });
 }
+
+/** A single smart-card operation surfaced by the /smartcard/events stream. */
+export type SmartCardOperation =
+  | { type: 'apdu'; request: string; response: string; sw: number }
+  | { type: 'connect'; readerId: string; atr: string }
+  | { type: 'disconnect' }
+  | { type: 'reset'; atr: string };
+
+/**
+ * Subscribe to the smart-card operation log over SSE. Replays the recent log
+ * first, then streams live entries until the signal aborts.
+ */
+export async function subscribeToOperations(
+  onOperation: (op: SmartCardOperation) => void,
+  signal: AbortSignal,
+): Promise<void> {
+  const res = await fetch(`${baseUrl()}/smartcard/events`, {
+    headers: { ...authHeaders(), Accept: 'text/event-stream' },
+    signal,
+  });
+  if (!res.ok || !res.body) {
+    throw new Error(`SmartCard events stream failed (${res.status})`);
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  const dispatch = (chunk: string): void => {
+    buffer += chunk;
+    let boundary = buffer.indexOf('\n\n');
+    while (boundary !== -1) {
+      const frame = buffer.slice(0, boundary);
+      buffer = buffer.slice(boundary + 2);
+      for (const line of frame.split('\n')) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          onOperation(JSON.parse(line.slice('data: '.length)));
+        } catch {
+          // Ignore malformed frames; the stream stays usable.
+        }
+      }
+      boundary = buffer.indexOf('\n\n');
+    }
+  };
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    dispatch(decoder.decode(value, { stream: true }));
+  }
+}

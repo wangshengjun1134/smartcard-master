@@ -4,7 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { X509Certificate, createHash, timingSafeEqual } from 'node:crypto';
+import {
+  X509Certificate,
+  createHash,
+  randomBytes,
+  timingSafeEqual,
+} from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { lookup } from 'node:dns/promises';
 import * as fs from 'node:fs';
@@ -79,6 +84,10 @@ import type {
   ProviderSetupInputs,
   TelemetryRuntimeConfig,
   TelemetrySettings,
+} from '@qwen-code/qwen-code-core';
+import {
+  SMARTCARD_DAEMON_TOKEN_ENV,
+  SMARTCARD_DAEMON_URL_ENV,
 } from '@qwen-code/qwen-code-core';
 import { MEMORY_PROJECT_SCOPES } from '@qwen-code/qwen-code-core/memoryScopes';
 import { createBridgeFileSystemAdapter } from './bridge-file-system-adapter.js';
@@ -4207,12 +4216,27 @@ async function runQwenServeImpl(
         : undefined,
     QWEN_SERVE_MCP_BUDGET_MODE: opts.mcpBudgetMode,
     QWEN_SERVE_CDP_TUNNEL_OVER_WS: opts.cdpTunnelOverWs ? '1' : undefined,
-    QWEN_SMARTCARD_SIDECAR: process.env['QWEN_SMARTCARD_SIDECAR'],
     [PRIVATE_EXTERNAL_TOOL_GUARD_ENV]: EXTERNAL_TOOL_GUARD_REQUIRED_VALUE,
     [PRIVATE_EXTERNAL_TOOL_GUARD_PROVIDER_ENV]: externalToolGuardHandler
       ? EXTERNAL_TOOL_GUARD_PROVIDER_ATTACHED_VALUE
       : undefined,
   };
+
+  // Smart-card: the ACP child reaches the daemon's single reader connection
+  // over HTTP instead of spawning its own sidecar. The scoped token is only
+  // accepted by /smartcard/* routes; the URL is known once the listener binds
+  // (the desktop host passes --port 0). Both are injected into the child env
+  // lazily, at spawn time, via the channel factory's extraEnv hook.
+  const smartCardDaemonToken = randomBytes(32).toString('hex');
+  let smartCardDaemonUrl: string | undefined;
+
+  const smartCardExtraEnv = (): Record<string, string | undefined> =>
+    smartCardDaemonUrl
+      ? {
+          [SMARTCARD_DAEMON_URL_ENV]: smartCardDaemonUrl,
+          [SMARTCARD_DAEMON_TOKEN_ENV]: smartCardDaemonToken,
+        }
+      : {};
 
   const cliVersionPromise = getCliVersion();
   let cliVersion: string | undefined;
@@ -5107,6 +5131,7 @@ async function runQwenServeImpl(
       pipeLimits: runtime.daemonAcpNdJsonLimits,
       sourceEnv: runtimeEffectiveEnv,
       onDiagnosticLine: diagnosticSink,
+      extraEnv: smartCardExtraEnv,
       pipeHooks: {
         onMessageSent: (bytes) => recordPipeMessage('outbound', bytes),
         onMessageReceived: (bytes) => recordPipeMessage('inbound', bytes),
@@ -6026,6 +6051,7 @@ async function runQwenServeImpl(
         pipeLimits: runtime.daemonAcpNdJsonLimits,
         sourceEnv: secondaryEnv.effectiveEnv,
         onDiagnosticLine: diagnosticSink,
+        extraEnv: smartCardExtraEnv,
         pipeHooks: {
           onMessageSent: (bytes) => recordPipeMessage('outbound', bytes),
           onMessageReceived: (bytes) => recordPipeMessage('inbound', bytes),
@@ -6686,6 +6712,7 @@ async function runQwenServeImpl(
         pipeLimits: runtime.daemonAcpNdJsonLimits,
         sourceEnv: wsEnv.effectiveEnv,
         onDiagnosticLine: diagnosticSink,
+        extraEnv: smartCardExtraEnv,
         pipeHooks: {
           onMessageSent: (bytes) => recordPipeMessage('outbound', bytes),
           onMessageReceived: (bytes) => recordPipeMessage('inbound', bytes),
@@ -7499,6 +7526,7 @@ async function runQwenServeImpl(
       workspaceRegistry,
       getSessionBridges: () => runtimeBridges,
       createWorkspaceRuntime: createDynamicWorkspaceRuntime,
+      smartCardDaemonToken,
       ...(workspaceTrustHotReloadAvailable
         ? {
             validateWorkspaceRuntimeForPublication,
@@ -8160,6 +8188,9 @@ async function runQwenServeImpl(
       actualPort = typeof addr === 'object' && addr ? addr.port : opts.port;
       const scheme = tlsOptions ? 'https' : 'http';
       const url = `${scheme}://${formatHostForUrl(optsIn.hostname)}:${actualPort}`;
+      if (process.env['QWEN_SMARTCARD_SIDECAR']) {
+        smartCardDaemonUrl = url;
+      }
       const liveRuntimeBaseDir = path.dirname(daemonLogBaseDir);
       const liveDiscoveryOwners: Array<{
         runtimeBaseDir: string;

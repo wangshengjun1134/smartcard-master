@@ -410,6 +410,13 @@ export interface SpawnChannelFactoryOptions {
   sourceEnv?: Readonly<NodeJS.ProcessEnv>;
   processRegistry?: ProcessRegistry;
   /**
+   * Evaluated at spawn time (after the listener has bound), returning env
+   * vars merged into the child env. Lets the daemon inject values only known
+   * once it is listening (e.g. its ephemeral port), without freezing them at
+   * factory construction.
+   */
+  extraEnv?: () => Record<string, string | undefined>;
+  /**
    * Daemon child-heap policy. Only meaningful together with a **shared**
    * `processRegistry`: the factory otherwise builds its own, every spawn sees
    * a concurrent count of 1, and each child is handed the whole pool — the
@@ -456,6 +463,15 @@ export function createSpawnChannelFactory(
     // Marks the child as daemon-spawned so its ACP channel fallback reports
     // channel=daemon in usage statistics (see cli/src/config/acp-channel-fallback.ts).
     childEnv['QWEN_CODE_SERVE'] = '1';
+
+    const extraEnv = options.extraEnv?.();
+    if (extraEnv) {
+      for (const [key, value] of Object.entries(extraEnv)) {
+        if (value !== undefined) {
+          childEnv[key] = value;
+        }
+      }
+    }
 
     const execArgs = process.execArgv.filter(
       (a) => !/^--inspect(-brk)?($|=)/.test(a),

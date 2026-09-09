@@ -5,6 +5,7 @@
  */
 
 import type { CardTransport } from '../transport/card-transport.js';
+import { apduToBytes, bytesToHex } from '../bytes.js';
 import type {
   ApduAction,
   ApduActionResult,
@@ -18,11 +19,15 @@ import type {
   SkillAction,
   WaitAction,
 } from './types.js';
+import type { SmartCardOperation } from './operation-log.js';
 
 /** Resolves the reader an action should target. */
 export interface ActiveReaderProvider {
   (): string | null;
 }
+
+/** Receives operations performed on a skill's behalf (APDU, connect, ...). */
+export type OperationListener = (op: SmartCardOperation) => void;
 
 function successResult(
   action: SkillAction,
@@ -55,6 +60,7 @@ export class ActionExecutor {
   constructor(
     private readonly transport: CardTransport,
     private readonly getActiveReaderId: ActiveReaderProvider,
+    private readonly onOperation?: OperationListener,
   ) {}
 
   private requireReader(action: SkillAction): string {
@@ -89,6 +95,12 @@ export class ActionExecutor {
   private async executeApdu(action: ApduAction): Promise<ApduActionResult> {
     const readerId = this.requireReader(action);
     const response = await this.transport.transmit(readerId, action.apdu);
+    this.onOperation?.({
+      type: 'apdu',
+      request: bytesToHex(apduToBytes(action.apdu)),
+      response: bytesToHex(response.data),
+      sw: response.sw,
+    });
     return {
       actionId: action.actionId,
       actionType: 'APDU',
@@ -102,6 +114,7 @@ export class ActionExecutor {
   ): Promise<ResetCardResult> {
     const readerId = this.requireReader(action);
     const atr = await this.transport.reset(readerId);
+    this.onOperation?.({ type: 'reset', atr });
     return {
       actionId: action.actionId,
       actionType: 'RESET_CARD',
@@ -114,6 +127,11 @@ export class ActionExecutor {
     action: ConnectReaderAction,
   ): Promise<ConnectReaderResult> {
     const handle = await this.transport.connect(action.readerId);
+    this.onOperation?.({
+      type: 'connect',
+      readerId: action.readerId,
+      atr: handle.atr,
+    });
     return {
       actionId: action.actionId,
       actionType: 'CONNECT_READER',
@@ -127,6 +145,7 @@ export class ActionExecutor {
   ): Promise<DisconnectReaderResult> {
     const readerId = action.readerId ?? this.requireReader(action);
     await this.transport.disconnect(readerId);
+    this.onOperation?.({ type: 'disconnect' });
     return {
       actionId: action.actionId,
       actionType: 'DISCONNECT_READER',

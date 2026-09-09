@@ -15,9 +15,11 @@ import type {
   SkillExecutionResult,
   SkillInput,
 } from '../skills/types.js';
+import { apduToBytes, bytesToHex } from '../bytes.js';
 import { SkillRegistry } from '../skills/registry.js';
 import { ActionExecutor } from './action-executor.js';
 import { SkillExecutor } from './skill-executor.js';
+import { OperationLog, type SmartCardOperation } from './operation-log.js';
 import type { CardSession } from './types.js';
 
 /**
@@ -30,13 +32,18 @@ export class SmartCardRuntime {
   private readonly registry: SkillRegistry;
   private readonly actionExecutor: ActionExecutor;
   private readonly skillExecutor: SkillExecutor;
+  private readonly operationLog = new OperationLog();
   private readerId: string | null = null;
   private atr: string | null = null;
 
   constructor(transport: CardTransport, registry?: SkillRegistry) {
     this.transport = transport;
     this.registry = registry ?? new SkillRegistry();
-    this.actionExecutor = new ActionExecutor(transport, () => this.readerId);
+    this.actionExecutor = new ActionExecutor(
+      transport,
+      () => this.readerId,
+      (op) => this.operationLog.append(op),
+    );
     this.skillExecutor = new SkillExecutor(this.actionExecutor, () =>
       this.getCardSession(),
     );
@@ -58,6 +65,7 @@ export class SmartCardRuntime {
     const handle = await this.transport.connect(readerId);
     this.readerId = readerId;
     this.atr = handle.atr;
+    this.operationLog.append({ type: 'connect', readerId, atr: handle.atr });
     return handle.atr;
   }
 
@@ -67,6 +75,7 @@ export class SmartCardRuntime {
     }
     this.readerId = null;
     this.atr = null;
+    this.operationLog.append({ type: 'disconnect' });
   }
 
   async reset(): Promise<string> {
@@ -76,6 +85,7 @@ export class SmartCardRuntime {
     }
     const atr = await this.transport.reset(readerId);
     this.atr = atr;
+    this.operationLog.append({ type: 'reset', atr });
     return atr;
   }
 
@@ -86,7 +96,24 @@ export class SmartCardRuntime {
         'No active reader. Connect a reader before sending APDU.',
       );
     }
-    return this.transport.transmit(readerId, apdu);
+    const response = await this.transport.transmit(readerId, apdu);
+    this.operationLog.append({
+      type: 'apdu',
+      request: bytesToHex(apduToBytes(apdu)),
+      response: bytesToHex(response.data),
+      sw: response.sw,
+    });
+    return response;
+  }
+
+  /** Snapshot of the operations recorded so far (replay on SSE connect). */
+  getOperations(): SmartCardOperation[] {
+    return this.operationLog.snapshot();
+  }
+
+  /** Subscribe to live operations. Returns an unsubscribe function. */
+  onOperation(listener: (op: SmartCardOperation) => void): () => void {
+    return this.operationLog.subscribe(listener);
   }
 
   listSkills(): Skill[] {

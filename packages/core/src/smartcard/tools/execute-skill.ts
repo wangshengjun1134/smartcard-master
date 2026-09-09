@@ -11,8 +11,7 @@ import {
   Kind,
 } from '../../tools/tools.js';
 import { ToolNames, ToolDisplayNames } from '../../tools/tool-names.js';
-import type { Config } from '../../config/config.js';
-import { requireSmartCardRuntime } from './context.js';
+import { smartcardExecuteSkill } from '../daemon-client.js';
 
 export interface SmartCardExecuteSkillParams {
   skillId: string;
@@ -23,10 +22,7 @@ class SmartCardExecuteSkillInvocation extends BaseToolInvocation<
   SmartCardExecuteSkillParams,
   ToolResult
 > {
-  constructor(
-    private readonly config: Config,
-    params: SmartCardExecuteSkillParams,
-  ) {
+  constructor(params: SmartCardExecuteSkillParams) {
     super(params);
   }
 
@@ -35,8 +31,7 @@ class SmartCardExecuteSkillInvocation extends BaseToolInvocation<
   }
 
   async execute(): Promise<ToolResult> {
-    const runtime = requireSmartCardRuntime(this.config);
-    const result = await runtime.executeSkill(
+    const result = await smartcardExecuteSkill(
       this.params.skillId,
       this.params.input ?? {},
     );
@@ -67,7 +62,7 @@ export class SmartCardExecuteSkillTool extends BaseDeclarativeTool<
 > {
   static readonly Name = ToolNames.SMARTCARD_EXECUTE_SKILL;
 
-  constructor(private readonly config: Config) {
+  constructor() {
     super(
       SmartCardExecuteSkillTool.Name,
       ToolDisplayNames.SMARTCARD_EXECUTE_SKILL,
@@ -101,6 +96,6 @@ export class SmartCardExecuteSkillTool extends BaseDeclarativeTool<
   protected createInvocation(
     params: SmartCardExecuteSkillParams,
   ): ToolInvocation<SmartCardExecuteSkillParams, ToolResult> {
-    return new SmartCardExecuteSkillInvocation(this.config, params);
+    return new SmartCardExecuteSkillInvocation(params);
   }
 }

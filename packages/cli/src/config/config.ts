@@ -50,7 +50,6 @@ import {
   getBuiltInOutputStyle,
   stripAnsiAndControl,
   type OutputStyleDefinition,
-  createSmartCardRuntime,
 } from '@qwen-code/qwen-code-core';
 import { extensionsCommand } from '../commands/extensions.js';
 import { hooksCommand } from '../commands/hooks.js';
@@ -2447,16 +2446,6 @@ export async function loadCliConfig(
   };
 
   const config = new Config(configParams);
-
-  // Smart-card support: the desktop host exposes a process-level reader
-  // connection. Each runtime process (daemon or overlay child) owns its own
-  // transport; PC/SC shared mode lets them coexist on one reader.
-  if (
-    process.env['QWEN_CODE_DESKTOP'] === '1' ||
-    process.env['QWEN_SMARTCARD_SIDECAR']
-  ) {
-    config.setSmartCardRuntime(createSmartCardRuntime());
-  }
 
   if (lspEnabled) {
     try {

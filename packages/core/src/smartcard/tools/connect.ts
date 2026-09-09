@@ -11,8 +11,7 @@ import {
   Kind,
 } from '../../tools/tools.js';
 import { ToolNames, ToolDisplayNames } from '../../tools/tool-names.js';
-import type { Config } from '../../config/config.js';
-import { requireSmartCardRuntime } from './context.js';
+import { smartcardConnect, smartcardListReaders } from '../daemon-client.js';
 
 export interface SmartCardConnectParams {
   readerId?: string;
@@ -22,10 +21,7 @@ class SmartCardConnectInvocation extends BaseToolInvocation<
   SmartCardConnectParams,
   ToolResult
 > {
-  constructor(
-    private readonly config: Config,
-    params: SmartCardConnectParams,
-  ) {
+  constructor(params: SmartCardConnectParams) {
     super(params);
   }
 
@@ -36,10 +32,8 @@ class SmartCardConnectInvocation extends BaseToolInvocation<
   }
 
   async execute(): Promise<ToolResult> {
-    const runtime = requireSmartCardRuntime(this.config);
-
     if (!this.params.readerId) {
-      const readers = await runtime.listReaders();
+      const { readers } = await smartcardListReaders();
       const lines = readers.map((reader) =>
         [
           reader.id,
@@ -56,7 +50,7 @@ class SmartCardConnectInvocation extends BaseToolInvocation<
       return { llmContent: content, returnDisplay: content };
     }
 
-    const atr = await runtime.connect(this.params.readerId);
+    const { atr } = await smartcardConnect(this.params.readerId);
     const content = `Connected to reader "${this.params.readerId}". ATR = ${atr || '(unavailable)'}`;
     return { llmContent: content, returnDisplay: content };
   }
@@ -68,7 +62,7 @@ export class SmartCardConnectTool extends BaseDeclarativeTool<
 > {
   static readonly Name = ToolNames.SMARTCARD_CONNECT;
 
-  constructor(private readonly config: Config) {
+  constructor() {
     super(
       SmartCardConnectTool.Name,
       ToolDisplayNames.SMARTCARD_CONNECT,
@@ -97,6 +91,6 @@ export class SmartCardConnectTool extends BaseDeclarativeTool<
   protected createInvocation(
     params: SmartCardConnectParams,
   ): ToolInvocation<SmartCardConnectParams, ToolResult> {
-    return new SmartCardConnectInvocation(this.config, params);
+    return new SmartCardConnectInvocation(params);
   }
 }
