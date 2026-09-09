@@ -146,3 +146,7 @@ tmp/
 # Brand build workspaces (created by the desktop-brand-builder skill)
 brand-builds/
 workspace/
+.npm-cache/
+.npm-cache-tmp/
+.workbuddy/
+packages/desktop-shell/src-tauri/smartcard-sidecar/target/
