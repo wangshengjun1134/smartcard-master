@@ -22,6 +22,10 @@ import {
   type SkillLevelFilter,
   type SkillStatusFilter,
 } from './skills-manager-logic';
+import {
+  listSmartCardSkills,
+  type SmartCardSkillInfo,
+} from '../smartcard/smartcard-api';
 import { Alert, AlertDescription } from '../ui/alert';
 import { ManagementNotice } from '../ui/management-notice';
 import { Badge } from '../ui/badge';
@@ -194,6 +198,10 @@ export function SkillsManagerPage({
     text: string;
     error: boolean;
   } | null>(null);
+  const [smartCardSkills, setSmartCardSkills] = useState<
+    SmartCardSkillInfo[] | null
+  >(null);
+  const [smartCardLoading, setSmartCardLoading] = useState(false);
   const displayedSkills = skills;
   const selectedSkill = useMemo(
     () => displayedSkills.find((skill) => skill.name === selectedName),
@@ -216,7 +224,32 @@ export function SkillsManagerPage({
     { value: 'project', label: t('skills.filter.project') },
     { value: 'extension', label: t('skills.filter.extension') },
     { value: 'bundled', label: t('skills.filter.bundled') },
+    { value: 'smartcard', label: 'SmartCard' },
   ];
+
+  // Load smart-card skills when the smartcard filter is selected.
+  useEffect(() => {
+    if (levelFilter !== 'smartcard') return;
+    if (smartCardSkills !== null) return;
+    let cancelled = false;
+    setSmartCardLoading(true);
+    listSmartCardSkills()
+      .then((result) => {
+        if (!cancelled) {
+          setSmartCardSkills(result);
+          setSmartCardLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSmartCardSkills([]);
+          setSmartCardLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [levelFilter, smartCardSkills]);
 
   useEffect(() => {
     setSelectedName((name) => preserveSkillSelection(name, displayedSkills));
@@ -659,7 +692,66 @@ export function SkillsManagerPage({
           </Select>
         </div>
 
-        {filteredSkills.length ? (
+        {levelFilter === 'smartcard' ? (
+          smartCardLoading ? (
+            <div className="flex justify-center py-12">
+              <Spinner />
+            </div>
+          ) : smartCardSkills && smartCardSkills.length > 0 ? (
+            <div
+              className={styles.skillGrid}
+              data-column-count={Math.min(smartCardSkills.length, 4)}
+            >
+              {smartCardSkills.map((skill) => (
+                <Card
+                  key={skill.skillId}
+                  size="sm"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={skill.name}
+                  className="cursor-pointer transition-colors hover:bg-accent/30 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                  onClick={() => onUseSkill(skill.skillId)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      onUseSkill(skill.skillId);
+                    }
+                  }}
+                >
+                  <CardHeader className="block">
+                    <div className="flex items-start gap-3">
+                      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
+                        <SparklesIcon className="size-5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <CardTitle className="min-w-0 truncate">
+                          {skill.name}
+                        </CardTitle>
+                        <Badge variant="secondary" className="mt-1 text-[10px]">
+                          {skill.category}
+                        </Badge>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <CardDescription className="text-xs">
+                      {skill.description}
+                    </CardDescription>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>{t('skills.filter.smartcard.empty')}</EmptyTitle>
+                <EmptyMedia>
+                  <SparklesIcon className="size-8 text-muted-foreground" />
+                </EmptyMedia>
+              </EmptyHeader>
+            </Empty>
+          )
+        ) : filteredSkills.length ? (
           <div
             className={styles.skillGrid}
             data-column-count={Math.min(filteredSkills.length, 4)}

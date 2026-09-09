@@ -1,6 +1,9 @@
 import type { DaemonWorkspaceSkillStatus } from '@qwen-code/web-shell/daemon-react-sdk';
 
-export type SkillLevelFilter = 'all' | DaemonWorkspaceSkillStatus['level'];
+export type SkillLevelFilter =
+  | 'all'
+  | DaemonWorkspaceSkillStatus['level']
+  | 'smartcard';
 export type SkillStatusFilter = 'all' | 'enabled' | 'disabled';
 
 export function skillExtensionLabel(skill: DaemonWorkspaceSkillStatus): string {
@@ -13,6 +16,9 @@ export function filterSkills(
   level: SkillLevelFilter = 'all',
   status: SkillStatusFilter = 'all',
 ): DaemonWorkspaceSkillStatus[] {
+  // Smart-card skills are handled separately; this filter only applies to
+  // workspace skills.
+  if (level === 'smartcard') return [];
   const normalized = query.trim().toLowerCase();
   return skills.filter((skill) => {
     if (level !== 'all' && skill.level !== level) return false;

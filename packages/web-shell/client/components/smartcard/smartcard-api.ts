@@ -120,6 +120,20 @@ export async function listSkills(): Promise<{
   return request('/smartcard/skills');
 }
 
+export interface SmartCardSkillInfo {
+  skillId: string;
+  name: string;
+  description: string;
+  category: string;
+}
+
+export async function listSmartCardSkills(): Promise<SmartCardSkillInfo[]> {
+  const result = await request<{ skills: SmartCardSkillInfo[] }>(
+    '/smartcard/skills',
+  );
+  return result.skills;
+}
+
 export async function executeSkill(
   skillId: string,
   input: Record<string, unknown>,
