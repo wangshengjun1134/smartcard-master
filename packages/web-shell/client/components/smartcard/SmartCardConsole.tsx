@@ -75,7 +75,11 @@ function formatOperation(op: SmartCardOperation): string {
   switch (op.type) {
     case 'apdu': {
       const sw = op.sw.toString(16).padStart(4, '0').toUpperCase();
-      return op.response ? `< ${op.response.toUpperCase()} ${sw}` : `< ${sw}`;
+      const request = op.request ? `> ${op.request.toUpperCase()}\n` : '';
+      const response = op.response
+        ? `< ${op.response.toUpperCase()} ${sw}`
+        : `< ${sw}`;
+      return request + response;
     }
     case 'connect':
       return `Connected to "${op.readerId}". ATR = ${op.atr || '(unavailable)'}`;
@@ -120,7 +124,12 @@ export function SmartCardConsole({
     (message: string, type?: 'input' | 'output') => {
       const now = new Date();
       const timestamp = `[${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}]`;
-      setConsoleLines((prev) => [...prev, { timestamp, message, type }]);
+      // Split multi-line messages into separate entries
+      const lines = message.split('\n');
+      setConsoleLines((prev) => [
+        ...prev,
+        ...lines.map((line) => ({ timestamp, message: line, type })),
+      ]);
     },
     [],
   );

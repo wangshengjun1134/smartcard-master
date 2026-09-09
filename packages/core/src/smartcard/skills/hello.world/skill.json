@@ -1,0 +1,12 @@
+{
+  "skillId": "hello.world",
+  "version": "1.0.0",
+  "name": "Hello World",
+  "description": "Multi-step SmartCard skill example with state machine and context management.",
+  "category": "custom",
+  "runtime": {
+    "type": "node",
+    "version": "22+"
+  },
+  "entry": "index.ts"
+}
