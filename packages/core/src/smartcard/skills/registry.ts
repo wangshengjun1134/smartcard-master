@@ -29,4 +29,12 @@ export class SkillRegistry {
   listByCategory(category: SkillCategory): Skill[] {
     return this.list().filter((skill) => skill.category === category);
   }
+
+  /** Enable or disable a skill by id. Returns true if the skill was found. */
+  setEnabled(skillId: string, enabled: boolean): boolean {
+    const skill = this.skills.get(skillId);
+    if (!skill) return false;
+    skill.enabled = enabled;
+    return true;
+  }
 }

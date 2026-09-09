@@ -8,6 +8,7 @@ import {
   RefreshCwIcon,
   SearchIcon,
   SparklesIcon,
+  ToggleRightIcon,
 } from 'lucide-react';
 import {
   useSkills,
@@ -24,6 +25,7 @@ import {
 } from './skills-manager-logic';
 import {
   listSmartCardSkills,
+  setSmartCardSkillEnabled,
   type SmartCardSkillInfo,
 } from '../smartcard/smartcard-api';
 import { Alert, AlertDescription } from '../ui/alert';
@@ -111,6 +113,14 @@ function skillStatusBadgeClass(skill: DaemonWorkspaceSkillStatus): string {
   return skill.status === 'disabled'
     ? ''
     : 'bg-[var(--success-bg)] text-[var(--success-color)]';
+}
+
+function smartCardSkillStatusLabel(enabled: boolean): string {
+  return enabled ? 'Enabled' : 'Disabled';
+}
+
+function smartCardSkillStatusBadgeClass(enabled: boolean): string {
+  return enabled ? 'bg-[var(--success-bg)] text-[var(--success-color)]' : '';
 }
 
 function toggleErrorMessage(
@@ -202,6 +212,9 @@ export function SkillsManagerPage({
     SmartCardSkillInfo[] | null
   >(null);
   const [smartCardLoading, setSmartCardLoading] = useState(false);
+  const [busySmartCardSkill, setBusySmartCardSkill] = useState<string | null>(
+    null,
+  );
   const displayedSkills = skills;
   const selectedSkill = useMemo(
     () => displayedSkills.find((skill) => skill.name === selectedName),
@@ -289,6 +302,21 @@ export function SkillsManagerPage({
       });
     } finally {
       setBusySkill(null);
+    }
+  }
+
+  async function toggleSmartCardSkill(skill: SmartCardSkillInfo) {
+    const enabled = !skill.enabled;
+    setBusySmartCardSkill(skill.skillId);
+    try {
+      await setSmartCardSkillEnabled(skill.skillId, enabled);
+      // Refresh the smartcard skills list
+      const result = await listSmartCardSkills();
+      setSmartCardSkills(result);
+    } catch (error) {
+      console.error('Failed to toggle smartcard skill:', error);
+    } finally {
+      setBusySmartCardSkill(null);
     }
   }
 
@@ -724,20 +752,60 @@ export function SkillsManagerPage({
                         <SparklesIcon className="size-5" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <CardTitle className="min-w-0 truncate">
-                          {skill.name}
-                        </CardTitle>
-                        <Badge variant="secondary" className="mt-1 text-[10px]">
-                          {skill.category}
-                        </Badge>
+                        <div className="flex min-w-0 items-start justify-between gap-2">
+                          <CardTitle className="min-w-0 flex-1 truncate">
+                            {skill.name}
+                          </CardTitle>
+                          <div className="flex shrink-0 items-center gap-1">
+                            <Badge
+                              variant="secondary"
+                              className={`${smartCardSkillStatusBadgeClass(skill.enabled)} text-[10px]`}
+                            >
+                              {smartCardSkillStatusLabel(skill.enabled)}
+                            </Badge>
+                            <button
+                              type="button"
+                              tabIndex={-1}
+                              disabled={busySmartCardSkill === skill.skillId}
+                              className={`rounded p-0.5 transition-colors hover:bg-accent ${busySmartCardSkill === skill.skillId ? 'opacity-50' : ''}`}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void toggleSmartCardSkill(skill);
+                              }}
+                              title={
+                                skill.enabled
+                                  ? 'Disable this skill'
+                                  : 'Enable this skill'
+                              }
+                              aria-label={
+                                skill.enabled
+                                  ? `Disable ${skill.name}`
+                                  : `Enable ${skill.name}`
+                              }
+                            >
+                              <ToggleRightIcon
+                                className={`size-4 ${skill.enabled ? 'text-primary' : 'text-muted-foreground'}`}
+                              />
+                            </button>
+                          </div>
+                        </div>
+                        <CardDescription className="mt-1 min-w-0 text-xs">
+                          <TooltipProvider delayDuration={300}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="block truncate">
+                                  {skill.description}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {skill.description}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </CardDescription>
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent>
-                    <CardDescription className="text-xs">
-                      {skill.description}
-                    </CardDescription>
-                  </CardContent>
                 </Card>
               ))}
             </div>

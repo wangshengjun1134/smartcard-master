@@ -75,13 +75,7 @@ function formatOperation(op: SmartCardOperation): string {
   switch (op.type) {
     case 'apdu': {
       const sw = op.sw.toString(16).padStart(4, '0').toUpperCase();
-      return [
-        `APDU ${op.request}`,
-        `SW = ${sw}`,
-        op.response ? `Data = ${op.response}` : '',
-      ]
-        .filter(Boolean)
-        .join('\n');
+      return op.response ? `< ${op.response.toUpperCase()} ${sw}` : `< ${sw}`;
     }
     case 'connect':
       return `Connected to "${op.readerId}". ATR = ${op.atr || '(unavailable)'}`;

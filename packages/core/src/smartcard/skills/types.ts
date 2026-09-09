@@ -49,6 +49,8 @@ export interface Skill<S extends SkillSession = SkillSession> {
   name: string;
   description: string;
   category: SkillCategory;
+  /** Whether the skill is enabled for execution. Defaults to true. */
+  enabled?: boolean;
 
   createSession(context: SkillContext, input: SkillInput): S;
   start(context: SkillContext, session: S): SkillResult;

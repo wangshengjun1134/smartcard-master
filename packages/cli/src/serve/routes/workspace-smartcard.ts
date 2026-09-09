@@ -160,9 +160,49 @@ export function registerSmartCardRoutes(
         name: skill.name,
         description: skill.description,
         category: skill.category,
+        enabled: skill.enabled !== false,
       })),
     });
   });
+
+  app.patch(
+    '/smartcard/skills/:skillId/enabled',
+    auth,
+    parseJson,
+    async (req, res) => {
+      const skillId = req.params['skillId'];
+      if (!skillId || typeof skillId !== 'string') {
+        res.status(400).json({
+          error: 'skillId path parameter is required',
+          code: 'invalid_skill_id',
+        });
+        return;
+      }
+      const enabled = req.body?.['enabled'];
+      if (typeof enabled !== 'boolean') {
+        res.status(400).json({
+          error: 'enabled must be a boolean',
+          code: 'invalid_enabled',
+        });
+        return;
+      }
+      try {
+        const found = runtime.setSkillEnabled(skillId, enabled);
+        if (!found) {
+          res.status(404).json({
+            error: `Skill "${skillId}" not found`,
+            code: 'skill_not_found',
+          });
+          return;
+        }
+        res.status(200).json({ skillId, enabled });
+      } catch (err) {
+        sendBridgeError(res, err, {
+          route: 'PATCH /smartcard/skills/:skillId/enabled',
+        });
+      }
+    },
+  );
 
   app.post(
     '/smartcard/skills/:skillId/execute',

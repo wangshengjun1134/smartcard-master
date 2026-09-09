@@ -128,6 +128,11 @@ export class SmartCardRuntime {
     this.registry.register(skill);
   }
 
+  /** Enable or disable a skill. Returns true if the skill was found. */
+  setSkillEnabled(skillId: string, enabled: boolean): boolean {
+    return this.registry.setEnabled(skillId, enabled);
+  }
+
   async executeSkill(
     skillId: string,
     input: SkillInput,

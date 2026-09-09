@@ -125,6 +125,7 @@ export interface SmartCardSkillInfo {
   name: string;
   description: string;
   category: string;
+  enabled: boolean;
 }
 
 export async function listSmartCardSkills(): Promise<SmartCardSkillInfo[]> {
@@ -132,6 +133,17 @@ export async function listSmartCardSkills(): Promise<SmartCardSkillInfo[]> {
     '/smartcard/skills',
   );
   return result.skills;
+}
+
+export async function setSmartCardSkillEnabled(
+  skillId: string,
+  enabled: boolean,
+): Promise<{ skillId: string; enabled: boolean }> {
+  return request(`/smartcard/skills/${encodeURIComponent(skillId)}/enabled`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  });
 }
 
 export async function executeSkill(
