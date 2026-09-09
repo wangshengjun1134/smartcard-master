@@ -13,7 +13,7 @@ export const WEB_SHELL_THEMES: readonly WebShellTheme[] = [
   WebShellThemeId.Light,
 ];
 
-const ThemeContext = createContext<WebShellTheme>(WebShellThemeId.Dark);
+const ThemeContext = createContext<WebShellTheme>(WebShellThemeId.Light);
 
 export const ThemeProvider = ThemeContext.Provider;
 

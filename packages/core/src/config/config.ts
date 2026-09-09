@@ -60,6 +60,8 @@ import {
   StandardFileSystemService,
   type FileEncodingType,
 } from '../services/fileSystemService.js';
+import type { SmartCardRuntime } from '../smartcard/runtime/smartcard-runtime.js';
+import { hasSmartCardDaemonClient } from '../smartcard/daemon-client.js';
 import { cleanupStaleAgentWorktrees } from '../services/worktreeCleanup.js';
 import {
   CronScheduler,
@@ -2145,6 +2147,7 @@ export class Config {
   // announced and avoid double-announcing in the same turn's tail reminder.
   private pendingInlineAnnouncedSkillKeys = new Set<string>();
   private fileSystemService: FileSystemService;
+  private smartCardRuntime: SmartCardRuntime | null = null;
   private contentGeneratorConfig!: ContentGeneratorConfig;
   private contentGeneratorConfigSources: ContentGeneratorConfigSources = {};
   private contentGenerator!: ContentGenerator;
@@ -8462,6 +8465,22 @@ export class Config {
     this.fileSystemService = fileSystemService;
   }
 
+  /**
+   * Get the smart-card runtime, or null when smart-card support is not wired
+   * into this session (e.g. CLI mode without a desktop reader).
+   */
+  getSmartCardRuntime(): SmartCardRuntime | null {
+    return this.smartCardRuntime;
+  }
+
+  /**
+   * Inject a smart-card runtime. Called by the daemon/desktop host when a
+   * PC/SC stack is available.
+   */
+  setSmartCardRuntime(runtime: SmartCardRuntime | null): void {
+    this.smartCardRuntime = runtime;
+  }
+
   getChatCompression(): ChatCompressionSettings | undefined {
     return this.chatCompression;
   }
@@ -9629,6 +9648,41 @@ export class Config {
       }
     }
     await this.registerImageGenerationTool(registry);
+    // Smart-card tools register when smart-card support is available in this
+    // process: either a local runtime (daemon host with a PC/SC stack) or a
+    // daemon proxy (ACP child that reaches the daemon over HTTP).
+    if (this.getSmartCardRuntime() || hasSmartCardDaemonClient()) {
+      await registerLazy(ToolNames.SMARTCARD_CONNECT, async () => {
+        const { SmartCardConnectTool } = await import(
+          '../smartcard/tools/connect.js'
+        );
+        return new SmartCardConnectTool();
+      });
+      await registerLazy(ToolNames.SMARTCARD_DISCONNECT, async () => {
+        const { SmartCardDisconnectTool } = await import(
+          '../smartcard/tools/disconnect.js'
+        );
+        return new SmartCardDisconnectTool();
+      });
+      await registerLazy(ToolNames.SMARTCARD_SEND_APDU, async () => {
+        const { SmartCardSendApduTool } = await import(
+          '../smartcard/tools/send-apdu.js'
+        );
+        return new SmartCardSendApduTool();
+      });
+      await registerLazy(ToolNames.SMARTCARD_RESET, async () => {
+        const { SmartCardResetTool } = await import(
+          '../smartcard/tools/reset.js'
+        );
+        return new SmartCardResetTool();
+      });
+      await registerLazy(ToolNames.SMARTCARD_EXECUTE_SKILL, async () => {
+        const { SmartCardExecuteSkillTool } = await import(
+          '../smartcard/tools/execute-skill.js'
+        );
+        return new SmartCardExecuteSkillTool();
+      });
+    }
     if (this.isArtifactEnabled()) {
       await registerLazy(ToolNames.ARTIFACT, async () => {
         const { ArtifactTool } = await import(

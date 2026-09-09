@@ -330,6 +330,7 @@ export * from './services/fileHistoryService.js';
 export * from './services/fileReadCache.js';
 export * from './services/fileSystemService.js';
 export * from './services/tool-write-origin.js';
+export * from './smartcard/index.js';
 export {
   decodeBufferWithEncodingInfo,
   encodeTextFileContent,

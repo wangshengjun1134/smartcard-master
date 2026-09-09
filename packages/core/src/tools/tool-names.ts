@@ -67,6 +67,11 @@ export const ToolNames = {
   UPDATE_GOAL: 'update_goal',
   PROPOSE_GOAL: 'propose_goal',
   DISPLAY_IMAGE: 'display_image',
+  SMARTCARD_CONNECT: 'smartcard_connect',
+  SMARTCARD_DISCONNECT: 'smartcard_disconnect',
+  SMARTCARD_SEND_APDU: 'smartcard_send_apdu',
+  SMARTCARD_RESET: 'smartcard_reset',
+  SMARTCARD_EXECUTE_SKILL: 'smartcard_execute_skill',
 } as const;
 
 /**
@@ -124,6 +129,11 @@ export const ToolDisplayNames = {
   UPDATE_GOAL: 'UpdateGoal',
   PROPOSE_GOAL: 'ProposeGoal',
   DISPLAY_IMAGE: 'DisplayImage',
+  SMARTCARD_CONNECT: 'SmartCardConnect',
+  SMARTCARD_DISCONNECT: 'SmartCardDisconnect',
+  SMARTCARD_SEND_APDU: 'SmartCardSendApdu',
+  SMARTCARD_RESET: 'SmartCardReset',
+  SMARTCARD_EXECUTE_SKILL: 'SmartCardExecuteSkill',
 } as const;
 
 // Migration from old tool names to new tool names

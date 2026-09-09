@@ -8,6 +8,7 @@
     "dev": "tauri dev",
     "build": "npm run build:runtime && tauri build",
     "build:runtime": "node scripts/prepare-runtime.js",
+    "clean:dev": "node scripts/clean-dev.js",
     "smoke:runtime": "node scripts/smoke-runtime.js",
     "smoke:packaged": "node scripts/smoke-packaged.js",
     "test:release": "node scripts/test-release.js",

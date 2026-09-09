@@ -7,7 +7,7 @@ use std::sync::Mutex;
 use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize, WebviewWindow};
 
 const DEFAULT_WIDTH: u32 = 1280;
-const DEFAULT_HEIGHT: u32 = 820;
+const DEFAULT_HEIGHT: u32 = 720;
 const MIN_WIDTH: u32 = 900;
 const MIN_HEIGHT: u32 = 600;
 const DISABLE_SETTINGS_PERSISTENCE_ENV: &str = "QWEN_DESKTOP_DISABLE_SETTINGS_PERSISTENCE";
@@ -287,7 +287,7 @@ mod tests {
             true,
         );
         assert_eq!(state.width, 1280);
-        assert_eq!(state.height, 820);
+        assert_eq!(state.height, 720);
         assert_eq!(state.x, 40);
         assert_eq!(state.y, 50);
         assert!(state.maximized);

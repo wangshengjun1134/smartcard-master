@@ -907,7 +907,7 @@ const SETTINGS_SCHEMA = {
         label: 'Theme',
         category: 'UI',
         requiresRestart: false,
-        default: 'Qwen Dark' as string,
+        default: 'Qwen Light' as string,
         description: 'The color theme for the UI.',
         showInDialog: true,
       },

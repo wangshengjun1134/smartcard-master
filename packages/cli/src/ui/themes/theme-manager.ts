@@ -42,7 +42,7 @@ export interface ThemeDisplay {
   isCustom?: boolean;
 }
 
-export const DEFAULT_THEME: Theme = QwenDark;
+export const DEFAULT_THEME: Theme = QwenLight;
 export const AUTO_THEME_NAME = 'auto';
 
 function isPathWithinDirectory(parent: string, child: string): boolean {

@@ -36,8 +36,6 @@ import {
   ChevronRightIcon,
   Columns2Icon,
   LayoutGridIcon,
-  ListTodoIcon,
-  MessageCircleIcon,
   EllipsisVerticalIcon,
   ArchiveIcon,
   ArchiveRestoreIcon,
@@ -64,7 +62,6 @@ import { WebShellThemeId, type WebShellTheme } from '../../themeContext';
 import { useI18n } from '../../i18n';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
-import { Tabs, TabsList, TabsTrigger } from '../ui/tabs';
 import { Field, FieldGroup, FieldLabel } from '../ui/field';
 import {
   Select,
@@ -964,16 +961,13 @@ export function WebShellSidebar({
   if (!showSessionSourceSwitch && sessionSource !== 'default') {
     setSessionSource('default');
   }
-  const selectedSessionSource = sourceMetadataEnabled
-    ? showSessionSourceSwitch
-      ? sessionSource
-      : 'default'
-    : undefined;
+  // Always show all sessions (tasks and channels merged)
+  const selectedSessionSource = undefined;
   const channelManagementEnabled = Boolean(
     workspace.capabilities?.features.includes('channel_management'),
   );
-  const channelGroupingEnabled =
-    selectedSessionSource === 'channel' && channelManagementEnabled;
+  // Disable channel grouping to show all sessions in flat order
+  const channelGroupingEnabled = false;
   const {
     data: channelCatalogData,
     catalog: channelTypeCatalog,
@@ -5361,29 +5355,6 @@ export function WebShellSidebar({
             onOpenChange={setCollapsedSessionsOpen}
             isCloseBlocked={isCollapsedCloseBlocked}
           >
-            {showSessionSourceSwitch && sourceMetadataEnabled && (
-              <Tabs
-                className="px-2 pb-2"
-                value={sessionSource}
-                onValueChange={(value) =>
-                  setSessionSource(value as SidebarSessionSource)
-                }
-              >
-                <TabsList
-                  className="w-full"
-                  aria-label={t('sidebar.sessionSource')}
-                >
-                  <TabsTrigger value="default">
-                    <ListTodoIcon />
-                    {t('sidebar.sessionSource.tasks')}
-                  </TabsTrigger>
-                  <TabsTrigger value="channel">
-                    <MessageCircleIcon />
-                    {t('sidebar.sessionSource.channels')}
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-            )}
             {selectedSessionSource !== 'channel' &&
               pinnedSessions.length > 0 && (
                 <>
