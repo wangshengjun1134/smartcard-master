@@ -142,6 +142,10 @@ import { MemoryMessage } from './components/messages/MemoryMessage';
 import { AuthMessage } from './components/messages/AuthMessage';
 import { ToolsDialog } from './components/dialogs/ToolsDialog';
 import { GitDialog, type GitDialogView } from './components/dialogs/GitDialog';
+import {
+  listSmartCardSkills,
+  type SmartCardSkillInfo,
+} from './components/smartcard/smartcard-api.js';
 import { SkillsManagerPage } from './components/skills/SkillsManagerPage';
 import { DaemonStatusDialog } from './components/dialogs/DaemonStatusDialog';
 import { SessionOverviewPanel } from './components/SessionOverviewPanel';
@@ -154,6 +158,7 @@ import {
   type ArtifactPanelTab,
   type SideTaskListItem,
 } from './components/artifacts/ArtifactPanel';
+import { SmartCardConsole } from './components/smartcard/SmartCardConsole';
 import { releaseWebTerminal } from './components/terminal/TerminalPanel';
 import { Drawer, DrawerContent, DrawerTitle } from './components/ui/drawer';
 import type {
@@ -380,12 +385,15 @@ import styles from './App.module.css';
 const MODES_CYCLE = DAEMON_APPROVAL_MODES;
 const MAX_TOASTS = 4;
 const TOAST_AUTO_DISMISS_MS = 5000;
-const DEFAULT_REVIEW_PANEL_WIDTH = 500;
+const DEFAULT_REVIEW_PANEL_WIDTH = 320;
 const MIN_ARTIFACT_PANEL_WIDTH = 320;
 const MIN_CHAT_PANE_WIDTH_WITH_ARTIFACT_PANEL = 500;
 const SUBAGENT_PANEL_ANIMATION_FALLBACK_MS = 700;
 const MIN_DOCKED_MESSAGE_AREA_WIDTH = 800;
 const DOCKED_ENVIRONMENT_PANEL_WIDTH = 332;
+const DEFAULT_SMARTCARD_PANEL_WIDTH = 320;
+const MIN_SMARTCARD_PANEL_WIDTH = 320;
+const MAX_SMARTCARD_PANEL_WIDTH = 800;
 
 function isWebTerminalTarget(event: Event): boolean {
   const target = event.composedPath()[0] ?? event.target;
@@ -3408,6 +3416,10 @@ export function App({
   const [artifactPanelWidth, setArtifactPanelWidth] = useState(
     DEFAULT_REVIEW_PANEL_WIDTH,
   );
+  const [smartCardPanelWidth, setSmartCardPanelWidth] = useState(
+    DEFAULT_SMARTCARD_PANEL_WIDTH,
+  );
+  const smartCardPanelResizeCleanupRef = useRef<(() => void) | null>(null);
   const [artifactPanelFullscreen, setArtifactPanelFullscreen] = useState(false);
   const artifactPanelFullscreenRef = useRef(false);
   artifactPanelFullscreenRef.current = artifactPanelFullscreen;
@@ -4557,7 +4569,65 @@ export function App({
     },
     [artifactPanelWidth, getMaxArtifactPanelWidth],
   );
+  const handleSmartCardPanelResizeStart = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      const resizeHandle = event.currentTarget;
+      resizeHandle.setPointerCapture(event.pointerId);
+      const startX = event.clientX;
+      const startWidth = smartCardPanelWidth;
+      const previousCursor = document.body.style.cursor;
+      const previousUserSelect = document.body.style.userSelect;
+      let pendingWidth = startWidth;
+      let animationFrame: number | null = null;
+
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+
+      const flushWidth = () => {
+        animationFrame = null;
+        setSmartCardPanelWidth(pendingWidth);
+      };
+
+      const handlePointerMove = (moveEvent: PointerEvent) => {
+        pendingWidth = Math.min(
+          MAX_SMARTCARD_PANEL_WIDTH,
+          Math.max(
+            MIN_SMARTCARD_PANEL_WIDTH,
+            startWidth - (moveEvent.clientX - startX),
+          ),
+        );
+        if (animationFrame === null) {
+          animationFrame = window.requestAnimationFrame(flushWidth);
+        }
+      };
+      let handlePointerUp: () => void = () => {};
+      const cleanupResize = (commitWidth: boolean) => {
+        smartCardPanelResizeCleanupRef.current = null;
+        if (animationFrame !== null) {
+          window.cancelAnimationFrame(animationFrame);
+          animationFrame = null;
+        }
+        if (commitWidth) setSmartCardPanelWidth(pendingWidth);
+        if (resizeHandle.hasPointerCapture(event.pointerId)) {
+          resizeHandle.releasePointerCapture(event.pointerId);
+        }
+        document.body.style.cursor = previousCursor;
+        document.body.style.userSelect = previousUserSelect;
+        window.removeEventListener('pointermove', handlePointerMove);
+        window.removeEventListener('pointerup', handlePointerUp);
+        window.removeEventListener('pointercancel', handlePointerUp);
+      };
+      handlePointerUp = () => cleanupResize(true);
+      smartCardPanelResizeCleanupRef.current = () => cleanupResize(false);
+      window.addEventListener('pointermove', handlePointerMove);
+      window.addEventListener('pointerup', handlePointerUp);
+      window.addEventListener('pointercancel', handlePointerUp);
+    },
+    [smartCardPanelWidth],
+  );
   useEffect(() => () => artifactPanelResizeCleanupRef.current?.(), []);
+  useEffect(() => () => smartCardPanelResizeCleanupRef.current?.(), []);
   const rawPendingApproval = useMemo(
     () => extractPendingPermission(blocks),
     [blocks],
@@ -5278,6 +5348,10 @@ export function App({
     sessionId: string;
     workspaceCwd: string | undefined;
   }>();
+  const [smartCardSkills, setSmartCardSkills] = useState<SmartCardSkillInfo[]>(
+    [],
+  );
+  const [smartCardSkillsReady, setSmartCardSkillsReady] = useState(false);
   const connectionSkillSnapshotRef = useRef({
     sessionId: connection.sessionId,
     skills: connection.skills,
@@ -5287,6 +5361,29 @@ export function App({
     skills: connection.skills,
   };
   const loadedSkillsRequestRef = useRef(0);
+  const smartCardSkillsRequestRef = useRef(0);
+
+  // Load smart-card skills once on daemon connect.
+  useEffect(() => {
+    if (!connected || smartCardSkillsReady) return;
+    let cancelled = false;
+    const request = ++smartCardSkillsRequestRef.current;
+    listSmartCardSkills()
+      .then((result) => {
+        if (cancelled || request !== smartCardSkillsRequestRef.current) return;
+        setSmartCardSkills(result);
+        setSmartCardSkillsReady(true);
+      })
+      .catch(() => {
+        if (cancelled || request !== smartCardSkillsRequestRef.current) return;
+        setSmartCardSkills([]);
+        setSmartCardSkillsReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [connected, smartCardSkillsReady]);
+
   const reloadLoadedSkills = useCallback(
     async (workspaceCwd?: string, notifyOnError = false) => {
       const request = ++loadedSkillsRequestRef.current;
@@ -13265,26 +13362,50 @@ export function App({
       (loadedSkillsFallback?.sessionId === connection.sessionId &&
         loadedSkillsFallback.workspaceCwd === connection.workspaceCwd));
   const composerSkills = useMemo(() => {
-    if (!workspaceContextActive) {
-      return pendingSessionContext === undefined && connection.sessionId
+    const base = !workspaceContextActive
+      ? pendingSessionContext === undefined && connection.sessionId
         ? availableSessionSkillInfos(
             connection.skills ?? [],
             connection.commands ?? [],
           )
-        : [];
+        : []
+      : useWorkspaceSkillSnapshot
+        ? loadedSkills
+        : availableSessionSkillInfos(
+            connection.skills ?? [],
+            connection.commands ?? [],
+          );
+    // Merge smart-card skills into the composer skill list so they appear
+    // in both the `/` slash-completion and the `+` add-menu.
+    if (smartCardSkillsReady && smartCardSkills.length > 0) {
+      const merged: SkillInfo[] = [
+        ...base,
+        ...smartCardSkills.map((s) => ({
+          name: s.skillId,
+          description: s.description,
+          argumentHint: undefined,
+        })),
+      ];
+      // De-duplicate by name (smart-card skills may share names with
+      // workspace skills; prefer the workspace version).
+      const byName = new Map<string, SkillInfo>();
+      for (const s of merged) {
+        const key = s.name.toLowerCase();
+        if (!byName.has(key)) {
+          byName.set(key, s);
+        }
+      }
+      return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
     }
-    return useWorkspaceSkillSnapshot
-      ? loadedSkills
-      : availableSessionSkillInfos(
-          connection.skills ?? [],
-          connection.commands ?? [],
-        );
+    return base;
   }, [
     connection.commands,
     connection.sessionId,
     connection.skills,
     loadedSkills,
     pendingSessionContext,
+    smartCardSkills,
+    smartCardSkillsReady,
     useWorkspaceSkillSnapshot,
     workspaceContextActive,
   ]);
@@ -13313,9 +13434,23 @@ export function App({
           displayCategory: 'skill' as const,
         }))
       : [];
+    // Smart-card skills become slash commands too: the `/` completion menu
+    // only ranks entries from the `commands` list (not the `skills` list),
+    // so merging here is what makes `/scp02...` autocomplete. Placed before
+    // `refreshedSkillCommands` so a same-named workspace skill wins.
+    const smartCardSkillCommands: CommandInfo[] =
+      smartCardSkillsReady && smartCardSkills.length > 0
+        ? smartCardSkills.map((skill) => ({
+            name: skill.skillId,
+            description: skill.description,
+            source: 'skill',
+            displayCategory: 'skill' as const,
+          }))
+        : [];
     return localizeBuiltinDescriptions(
       mergeCommands(
         retainedCommands,
+        smartCardSkillCommands,
         refreshedSkillCommands,
         getLocalCommands(t, { sideTaskAvailable: sideTasksAvailable }),
         [...additionalSlashCommands],
@@ -13348,6 +13483,8 @@ export function App({
     loadedSkills,
     pendingSessionContext,
     sideTasksAvailable,
+    smartCardSkills,
+    smartCardSkillsReady,
     t,
     useWorkspaceSkillSnapshot,
     workspaceContextActive,
@@ -16174,6 +16311,12 @@ export function App({
                 </div>,
                 artifactPanelSlotEl,
               )}
+            {/* SmartCard Console - fixed panel on the right side */}
+            <SmartCardConsole
+              className={styles.smartCardPanel}
+              width={smartCardPanelWidth}
+              onResizeStart={handleSmartCardPanelResizeStart}
+            />
           </div>
         </div>
         </CompactModeContext.Provider>
