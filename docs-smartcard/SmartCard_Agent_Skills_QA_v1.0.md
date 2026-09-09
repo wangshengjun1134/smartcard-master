@@ -361,3 +361,31 @@ tail -50 "C:/Users/<用户名>/AppData/Local/com.alibaba.qwen-code/logs/desktop-
 Rust sidecar，较慢）。可以先用 `packages/web-shell` 下的 `npm run dev`（vite dev
 server，热更新）直接验证界面逻辑，确认无误后再按第 6.1 节做一次 `build:runtime`
 打包进桌面端验证 Tauri 集成。
+
+    方式一：桌面应用已运行时（推荐）
+
+    如果桌面应用已经在运行（PID 62044），不需要额外启动后端，因为桌面应用内置的 daemon 已经在端口 4170 提供服务了。
+
+    直接启动 web-shell 开发服务器：
+
+     1 cd packages/web-shell
+     2 npm run dev
+
+    这会在 http://localhost:5173 启动 vite 热重载服务器，它会自动连接桌面应用的 daemon（端口 4170）。
+
+    方式二：桌面应用未运行时
+
+    如果桌面应用没有运行，需要先启动 daemon：
+    cd d:\softdata\workspaces\buff\smartcard-master
+     1 # 先构建（如果代码有改动）
+     2 npm run build && npm run bundle
+     3
+     4 # 启动 daemon
+     5 npm run start
+     6 # 或者
+     7 npx tsx packages/cli/src/index.ts serve
+
+    然后再启动 web-shell：
+
+     1 cd packages/web-shell
+     2 npm run dev
