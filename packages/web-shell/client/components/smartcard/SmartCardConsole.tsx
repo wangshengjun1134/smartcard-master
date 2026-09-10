@@ -214,7 +214,7 @@ export function SmartCardConsole({
     }
   }, [width, prevWidth, onWidthChange]);
 
-  // Handle file selection from @ file picker — insert @label and store content
+  // Handle file selection from @ file picker — store content in fileRefs, remove @ trigger from textarea
   const handleFileChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
@@ -230,18 +230,15 @@ export function SmartCardConsole({
       const textBeforeCursor = inputValue.substring(0, cursorPos);
       const textAfterCursor = inputValue.substring(cursorPos);
 
-      // Find the @ that triggered the picker
+      // Find the @ that triggered the picker and remove it from textarea
       const lastAt = textBeforeCursor.lastIndexOf('@');
       const replaceFrom = lastAt;
 
-      // Insert @filename as a label, store content in fileRefs
       const label = `@${file.name}`;
-      const insertText = `${label} `;
 
+      // Remove the @ trigger from textarea value (don't insert label text)
       const newValue =
-        textBeforeCursor.substring(0, replaceFrom) +
-        insertText +
-        textAfterCursor;
+        textBeforeCursor.substring(0, replaceFrom) + textAfterCursor;
 
       setInputValue(newValue);
       setFileRefs((prev) => {
@@ -270,7 +267,7 @@ export function SmartCardConsole({
       reader.readAsText(file);
 
       setTimeout(() => {
-        const newCursorPos = replaceFrom + insertText.length;
+        const newCursorPos = replaceFrom;
         textarea.setSelectionRange(newCursorPos, newCursorPos);
         textarea.focus();
       }, 0);
@@ -391,23 +388,28 @@ export function SmartCardConsole({
     }
   };
 
-  // Handle submit — expand @labels, split multi-line input, execute each line
+  // Handle submit — collect file content + textarea lines, execute each in order
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     const raw = inputValue.trim();
-    if (!raw) return;
+    if (!raw && fileRefs.size === 0) return;
 
-    // Expand @filename labels to their stored file content
-    const expanded = raw.replace(/@(\S+)/g, (match) => {
-      const content = fileRefs.get(match);
-      if (content !== undefined && content !== '') return content;
-      return match; // keep as-is if not found or still loading
-    });
-
-    const lines = expanded
-      .split('\n')
-      .map((l) => l.trim())
-      .filter(Boolean);
+    // Collect all lines: file content first, then textarea input
+    const lines: string[] = [];
+    for (const content of fileRefs.values()) {
+      if (content) {
+        for (const l of content.split('\n')) {
+          const trimmed = l.trim();
+          if (trimmed) lines.push(trimmed);
+        }
+      }
+    }
+    if (raw) {
+      for (const l of raw.split('\n')) {
+        const trimmed = l.trim();
+        if (trimmed) lines.push(trimmed);
+      }
+    }
 
     setInputValue('');
     setFileRefs(new Map());
@@ -554,25 +556,24 @@ export function SmartCardConsole({
       <div className={styles.content}>
         {/* Console Area - with border */}
         <div className={styles.consoleArea}>
-          {consoleLines.map((line, index) => (
-            <div
-              key={index}
-              className={[
-                styles.consoleLine,
-                line.type === 'input' ? styles.consoleInput : undefined,
-                line.type === 'output'
-                  ? line.message.startsWith('<')
-                    ? styles.consoleOutput
-                    : styles.consoleOutputMuted
-                  : undefined,
-              ]
-                .filter(Boolean)
-                .join(' ')}
-            >
-              <span className={styles.timestamp}>{line.timestamp}</span>
-              <span className={styles.message}>{line.message}</span>
-            </div>
-          ))}
+          {consoleLines.map((line, index) => {
+            const isApdu =
+              line.message.startsWith('> ') || line.message.startsWith('< ');
+            return (
+              <div
+                key={index}
+                className={[
+                  styles.consoleLine,
+                  isApdu ? styles.consoleApdu : styles.consoleMuted,
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                <span className={styles.timestamp}>{line.timestamp}</span>
+                <span className={styles.message}>{line.message}</span>
+              </div>
+            );
+          })}
           <div ref={consoleEndRef} />
         </div>
 
@@ -635,11 +636,6 @@ export function SmartCardConsole({
                       className={styles.fileRefRemove}
                       title={`Remove ${label}`}
                       onClick={() => {
-                        // Remove @label from textarea value
-                        const regex = new RegExp(
-                          `${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*`,
-                        );
-                        setInputValue((prev) => prev.replace(regex, ''));
                         setFileRefs((prev) => {
                           const next = new Map(prev);
                           next.delete(label);
