@@ -172,6 +172,11 @@ export function SmartCardConsole({
     void refreshReaders();
   }, [refreshReaders]);
 
+  // Auto-scroll console area when new lines are appended
+  useEffect(() => {
+    consoleEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [consoleLines]);
+
   // Subscribe to the daemon operation log so every APDU (manual, agent tool,
   // or skill) and every connect/disconnect/reset shows up in the console.
   useEffect(() => {
