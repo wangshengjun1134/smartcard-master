@@ -7,6 +7,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight as ChevronRightIcon,
+  X,
   Usb,
   Unplug,
   Plug,
@@ -102,6 +103,9 @@ export function SmartCardConsole({
 
   // Toggle state: remember the width before expanding
   const [prevWidth, setPrevWidth] = useState<number | null>(null);
+
+  // File references: maps display label → file content
+  const [fileRefs, setFileRefs] = useState<Map<string, string>>(new Map());
 
   const addConsoleLine = useCallback(
     (message: string, type?: 'input' | 'output') => {
@@ -210,7 +214,7 @@ export function SmartCardConsole({
     }
   }, [width, prevWidth, onWidthChange]);
 
-  // Handle file selection from @ file picker — read file content and insert into textarea
+  // Handle file selection from @ file picker — insert @label and store content
   const handleFileChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
@@ -230,29 +234,46 @@ export function SmartCardConsole({
       const lastAt = textBeforeCursor.lastIndexOf('@');
       const replaceFrom = lastAt;
 
-      // Read file content and insert it after the @ mention
+      // Insert @filename as a label, store content in fileRefs
+      const label = `@${file.name}`;
+      const insertText = `${label} `;
+
+      const newValue =
+        textBeforeCursor.substring(0, replaceFrom) +
+        insertText +
+        textAfterCursor;
+
+      setInputValue(newValue);
+      setFileRefs((prev) => {
+        const next = new Map(prev);
+        next.set(label, ''); // content loaded async below
+        return next;
+      });
+
+      // Read file content asynchronously
       const reader = new FileReader();
       reader.onload = () => {
-        const fileContent = reader.result as string;
-        const insertText = `@${file.name}\n${fileContent}\n`;
-
-        const newValue =
-          textBeforeCursor.substring(0, replaceFrom) +
-          insertText +
-          textAfterCursor;
-
-        setInputValue(newValue);
-
-        setTimeout(() => {
-          const newCursorPos = replaceFrom + insertText.length;
-          textarea.setSelectionRange(newCursorPos, newCursorPos);
-          textarea.focus();
-        }, 0);
+        setFileRefs((prev) => {
+          const next = new Map(prev);
+          next.set(label, reader.result as string);
+          return next;
+        });
       };
       reader.onerror = () => {
         addConsoleLine(`Failed to read file: ${file.name}`, 'output');
+        setFileRefs((prev) => {
+          const next = new Map(prev);
+          next.delete(label);
+          return next;
+        });
       };
       reader.readAsText(file);
+
+      setTimeout(() => {
+        const newCursorPos = replaceFrom + insertText.length;
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+        textarea.focus();
+      }, 0);
     },
     [inputValue, addConsoleLine],
   );
@@ -370,18 +391,26 @@ export function SmartCardConsole({
     }
   };
 
-  // Handle submit — split multi-line input and execute each line in order
+  // Handle submit — expand @labels, split multi-line input, execute each line
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     const raw = inputValue.trim();
     if (!raw) return;
 
-    const lines = raw
+    // Expand @filename labels to their stored file content
+    const expanded = raw.replace(/@(\S+)/g, (match) => {
+      const content = fileRefs.get(match);
+      if (content !== undefined && content !== '') return content;
+      return match; // keep as-is if not found or still loading
+    });
+
+    const lines = expanded
       .split('\n')
       .map((l) => l.trim())
       .filter(Boolean);
 
     setInputValue('');
+    setFileRefs(new Map());
     setMenuType('none');
 
     if (textareaRef.current) {
@@ -389,12 +418,6 @@ export function SmartCardConsole({
     }
 
     for (const line of lines) {
-      // Skip @ file markers — they are labels, not commands
-      if (line.startsWith('@')) {
-        addConsoleLine(`> ${line}`, 'input');
-        continue;
-      }
-
       // APDU hex strings are already logged from the SSE operation stream,
       // so skip the manual echo to avoid a duplicate "> " line.
       const isApdu = !line.startsWith('/') && /^[0-9a-fA-F\s]+$/.test(line);
@@ -601,7 +624,37 @@ export function SmartCardConsole({
 
           {/* Editor Area */}
           <div className={styles.editorArea}>
-            {!inputValue && (
+            {/* File reference chips */}
+            {fileRefs.size > 0 && (
+              <div className={styles.fileRefs}>
+                {Array.from(fileRefs.keys()).map((label) => (
+                  <span key={label} className={styles.fileRefChip}>
+                    <span className={styles.fileRefLabel}>{label}</span>
+                    <button
+                      type="button"
+                      className={styles.fileRefRemove}
+                      title={`Remove ${label}`}
+                      onClick={() => {
+                        // Remove @label from textarea value
+                        const regex = new RegExp(
+                          `${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*`,
+                        );
+                        setInputValue((prev) => prev.replace(regex, ''));
+                        setFileRefs((prev) => {
+                          const next = new Map(prev);
+                          next.delete(label);
+                          return next;
+                        });
+                        textareaRef.current?.focus();
+                      }}
+                    >
+                      <X className={styles.fileRefRemoveIcon} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            {!inputValue && fileRefs.size === 0 && (
               <div className={styles.placeholder}>
                 直接发送指令，内容不进入任务上下文
                 <br />/ 选择快捷指令 @ 选择文件
