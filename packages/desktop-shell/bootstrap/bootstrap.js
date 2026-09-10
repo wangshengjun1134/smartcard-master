@@ -41,7 +41,7 @@ async function chooseWorkspace() {
   setStatus(
     'starting',
     'Opening workspace',
-    'Starting the bundled Qwen Code runtime…',
+    'Starting the bundled SmartCard Master runtime…',
   );
   try {
     const path = await invoke('choose_workspace');

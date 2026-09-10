@@ -5231,7 +5231,7 @@ export function WebShellSidebar({
                   <IconQwenLogo />
                 </span>
                 {!collapsed && (
-                  <span className={styles.brandName}>Qwen Code</span>
+                  <span className={styles.brandName}>SmartCard Master</span>
                 )}
               </>
             )}
@@ -5953,7 +5953,7 @@ export function WebShellSidebar({
                 footerItems.has('version') && (
                   <span
                     className={styles.version}
-                    title={`Qwen Code ${versionLabel}`}
+                    title={`SmartCard Master ${versionLabel}`}
                   >
                     {versionLabel}
                   </span>
