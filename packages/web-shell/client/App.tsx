@@ -16316,6 +16316,7 @@ export function App({
               className={styles.smartCardPanel}
               width={smartCardPanelWidth}
               onResizeStart={handleSmartCardPanelResizeStart}
+              onWidthChange={setSmartCardPanelWidth}
             />
           </div>
         </div>

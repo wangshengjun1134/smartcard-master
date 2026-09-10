@@ -6,6 +6,8 @@ import {
   AtSign,
   ChevronRight,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight as ChevronRightIcon,
   Usb,
   Unplug,
   Plug,
@@ -94,6 +96,7 @@ export interface SmartCardConsoleProps {
   className?: string;
   width: number;
   onResizeStart: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  onWidthChange?: (width: number) => void;
 }
 
 type MenuType = 'none' | 'slash' | 'at';
@@ -102,6 +105,7 @@ export function SmartCardConsole({
   className,
   width,
   onResizeStart,
+  onWidthChange,
 }: SmartCardConsoleProps) {
   const [inputValue, setInputValue] = useState('');
   const [consoleLines, setConsoleLines] = useState<
@@ -119,6 +123,9 @@ export function SmartCardConsole({
   const addMenuRef = useRef<HTMLDivElement>(null);
   const readerMenuRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLDivElement>(null);
+
+  // Toggle state: remember the width before expanding
+  const [prevWidth, setPrevWidth] = useState<number | null>(null);
 
   const addConsoleLine = useCallback(
     (message: string, type?: 'input' | 'output') => {
@@ -212,6 +219,20 @@ export function SmartCardConsole({
       setConnecting(false);
     }
   }, [selectedReader, isSelectedConnected, refreshReaders, addConsoleLine]);
+
+  // Toggle console width: expand to 800px or restore previous width
+  const handleWidthToggle = useCallback(() => {
+    const MAX_WIDTH = 800;
+    if (width < MAX_WIDTH) {
+      // Expand: save current width, go to max
+      setPrevWidth(width);
+      onWidthChange?.(MAX_WIDTH);
+    } else if (prevWidth !== null) {
+      // Collapse: restore previous width
+      onWidthChange?.(prevWidth);
+      setPrevWidth(null);
+    }
+  }, [width, prevWidth, onWidthChange]);
 
   // Filter items based on query
   const filteredSlashCommands = SLASH_COMMANDS.filter((cmd) =>
@@ -487,6 +508,17 @@ export function SmartCardConsole({
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.title}>SmartCard Console</div>
+        <button
+          className={styles.toggleWidthButton}
+          onClick={handleWidthToggle}
+          title={width < 800 ? 'Expand console' : 'Collapse console'}
+        >
+          {width < 800 ? (
+            <ChevronRightIcon className={styles.toggleWidthIcon} />
+          ) : (
+            <ChevronLeft className={styles.toggleWidthIcon} />
+          )}
+        </button>
       </div>
 
       {/* Content */}
