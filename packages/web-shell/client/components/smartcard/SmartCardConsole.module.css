@@ -126,6 +126,10 @@
   color: var(--foreground);
 }
 
+.consoleOutputMuted {
+  color: var(--muted-foreground);
+}
+
 .timestamp {
   color: var(--muted-foreground);
   flex-shrink: 0;

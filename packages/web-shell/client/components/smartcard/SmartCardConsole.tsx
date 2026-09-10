@@ -543,7 +543,11 @@ export function SmartCardConsole({
               className={[
                 styles.consoleLine,
                 line.type === 'input' ? styles.consoleInput : undefined,
-                line.type === 'output' ? styles.consoleOutput : undefined,
+                line.type === 'output'
+                  ? line.message.startsWith('<')
+                    ? styles.consoleOutput
+                    : styles.consoleOutputMuted
+                  : undefined,
               ]
                 .filter(Boolean)
                 .join(' ')}
