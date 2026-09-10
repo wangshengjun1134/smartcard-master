@@ -452,21 +452,10 @@ export function SmartCardConsole({
       return 'No active reader. Connect a reader first.';
     }
     const cleaned = hex.replace(/\s+/g, '');
-    if (cleaned.length < 8 || cleaned.length % 2 !== 0) {
-      return 'APDU must be a hex string of at least 4 bytes.';
+    if (cleaned.length < 4 || cleaned.length % 2 !== 0) {
+      return 'APDU must be a valid hex string (at least 4 bytes, even length).';
     }
-    const bytes = new Uint8Array(cleaned.length / 2);
-    for (let i = 0; i < bytes.length; i += 1) {
-      bytes[i] = Number.parseInt(cleaned.slice(i * 2, i * 2 + 2), 16);
-    }
-    const [cla, ins, p1, p2] = bytes;
-    let data: string | undefined;
-    if (bytes.length > 4) {
-      data = Array.from(bytes.slice(4), (byte) =>
-        byte.toString(16).padStart(2, '0'),
-      ).join('');
-    }
-    await sendApdu({ cla, ins, p1, p2, data });
+    await sendApdu({ hex: cleaned });
     // The APDU exchange is rendered from the /smartcard/events stream.
     return '';
   };

@@ -99,6 +99,7 @@ export async function resetCard(): Promise<{
   return request('/smartcard/reset', { method: 'POST' });
 }
 
+export async function sendApdu(apdu: { hex: string }): Promise<ApduResponse>;
 export async function sendApdu(apdu: {
   cla: number;
   ins: number;
@@ -106,7 +107,10 @@ export async function sendApdu(apdu: {
   p2: number;
   data?: string;
   le?: number;
-}): Promise<ApduResponse> {
+}): Promise<ApduResponse>;
+export async function sendApdu(
+  apdu: Record<string, unknown>,
+): Promise<ApduResponse> {
   return request('/smartcard/apdu', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

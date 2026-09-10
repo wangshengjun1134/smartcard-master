@@ -35,6 +35,11 @@ export interface ApduCommand {
   data?: Uint8Array;
   /** Expected response length (Le). */
   le?: number;
+  /**
+   * Raw APDU bytes — when provided, these are sent as-is and
+   * `cla`/`ins`/`p1`/`p2`/`data`/`le` are ignored for transmission.
+   */
+  bytes?: Uint8Array;
 }
 
 /** The response to a single APDU command. */

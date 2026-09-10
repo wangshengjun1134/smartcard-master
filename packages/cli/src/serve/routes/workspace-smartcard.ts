@@ -104,6 +104,42 @@ export function registerSmartCardRoutes(
 
   app.post('/smartcard/apdu', auth, parseJson, async (req, res) => {
     const body = req.body as Record<string, unknown> | undefined;
+
+    // Support raw hex string: POST { "hex": "00A400023F00" }
+    const hex = body?.['hex'];
+    if (typeof hex === 'string' && hex.trim()) {
+      const cleaned = hex.replace(/\s+/g, '');
+      if (cleaned.length < 4 || cleaned.length % 2 !== 0) {
+        res.status(400).json({
+          error:
+            'hex must be a valid hex string (at least 4 bytes, even length)',
+          code: 'invalid_apdu',
+        });
+        return;
+      }
+      try {
+        const apduBytes = hexToBytes(cleaned);
+        const response = await runtime.sendApdu({
+          cla: apduBytes[0],
+          ins: apduBytes[1],
+          p1: apduBytes[2],
+          p2: apduBytes[3],
+          bytes: apduBytes,
+        });
+        res.status(200).json({
+          data: bytesToHex(response.data),
+          sw1: response.sw1,
+          sw2: response.sw2,
+          sw: response.sw,
+        });
+        return;
+      } catch (err) {
+        sendBridgeError(res, err, { route: 'POST /smartcard/apdu' });
+        return;
+      }
+    }
+
+    // Legacy format: { cla, ins, p1, p2, data?, le? }
     const { cla, ins, p1, p2 } = body ?? {};
     if (
       !Number.isInteger(cla) ||

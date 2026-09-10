@@ -36,7 +36,11 @@ export function apduToBytes(apdu: {
   p2: number;
   data?: Uint8Array;
   le?: number;
+  bytes?: Uint8Array;
 }): Uint8Array {
+  // When raw bytes are provided, send them as-is.
+  if (apdu.bytes) return apdu.bytes;
+
   const header = new Uint8Array([
     apdu.cla & 0xff,
     apdu.ins & 0xff,
