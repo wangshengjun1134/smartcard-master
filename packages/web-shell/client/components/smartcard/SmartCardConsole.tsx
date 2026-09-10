@@ -343,25 +343,16 @@ export function SmartCardConsole({
     }
   };
 
-  // Handle submit
+  // Handle submit — split multi-line input and execute each line in order
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     const raw = inputValue.trim();
     if (!raw) return;
 
-    addConsoleLine(`> ${raw}`, 'input');
-
-    try {
-      const response = await executeCommand(raw);
-      if (response) {
-        addConsoleLine(response, 'output');
-      }
-    } catch (error) {
-      addConsoleLine(
-        error instanceof Error ? error.message : String(error),
-        'output',
-      );
-    }
+    const lines = raw
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
 
     setInputValue('');
     setMenuType('none');
@@ -370,9 +361,21 @@ export function SmartCardConsole({
       textareaRef.current.style.height = 'auto';
     }
 
-    setTimeout(() => {
-      consoleEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 0);
+    for (const line of lines) {
+      addConsoleLine(`> ${line}`, 'input');
+
+      try {
+        const response = await executeCommand(line);
+        if (response) {
+          addConsoleLine(response, 'output');
+        }
+      } catch (error) {
+        addConsoleLine(
+          error instanceof Error ? error.message : String(error),
+          'output',
+        );
+      }
+    }
   };
 
   const executeCommand = async (command: string): Promise<string> => {
