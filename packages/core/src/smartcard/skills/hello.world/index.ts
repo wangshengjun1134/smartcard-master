@@ -209,7 +209,7 @@ function parseIccid(data: number[]): string {
  */
 function handleStart(msg: Record<string, unknown>): void {
   const ctx: ExecutionContext = {
-    executionId: msg.executionId as string,
+    executionId: msg['executionId'] as string,
     step: 'START',
     atr: null,
     selectResponse: null,
@@ -222,16 +222,20 @@ function handleStart(msg: Record<string, unknown>): void {
   // Store context in global for access from handleActionResult
   (global as unknown as { _ctx?: ExecutionContext })._ctx = ctx;
 
-  const cardSession = msg.cardSession as Record<string, unknown> | undefined;
-  const input = msg.input as Record<string, unknown> | undefined;
+  const cardSession = msg['cardSession'] as Record<string, unknown> | undefined;
+  const input = msg['input'] as Record<string, unknown> | undefined;
 
   emitOutput(ctx, 'INFO', '=== Hello World v2 (Multi-Step) ===');
   emitOutput(ctx, 'INFO', `Input: ${JSON.stringify(input || {})}`);
-  emitOutput(ctx, 'INFO', `Card connected: ${cardSession?.connected || false}`);
-  emitOutput(ctx, 'INFO', `ATR: ${cardSession?.atr || 'N/A'}`);
-  ctx.atr = (cardSession?.atr as string) || null;
+  emitOutput(
+    ctx,
+    'INFO',
+    `Card connected: ${cardSession?.['connected'] || false}`,
+  );
+  emitOutput(ctx, 'INFO', `ATR: ${cardSession?.['atr'] || 'N/A'}`);
+  ctx.atr = (cardSession?.['atr'] as string) || null;
 
-  if (!cardSession?.connected) {
+  if (!cardSession?.['connected']) {
     emitOutput(
       ctx,
       'WARN',
@@ -258,8 +262,8 @@ function handleActionResult(msg: Record<string, unknown>): void {
     return;
   }
 
-  const success = msg.success as boolean;
-  const actionId = msg.actionId as string;
+  const success = msg['success'] as boolean;
+  const actionId = msg['actionId'] as string;
 
   if (!success) {
     // Error handling: retry or abort
@@ -290,16 +294,16 @@ function handleActionResult(msg: Record<string, unknown>): void {
     } else {
       finishFailed(
         ctx,
-        `Action ${actionId} failed permanently: ${msg.error || 'Unknown error'}`,
+        `Action ${actionId} failed permanently: ${msg['error'] || 'Unknown error'}`,
       );
     }
     return;
   }
 
   // Success handling: parse response and proceed
-  const response = msg.response as Record<string, unknown> | undefined;
-  const sw = (response?.sw as number) || 0;
-  const data = (response?.data as number[]) || [];
+  const response = msg['response'] as Record<string, unknown> | undefined;
+  const sw = (response?.['sw'] as number) || 0;
+  const data = (response?.['data'] as number[]) || [];
 
   if (!swOk(sw)) {
     emitOutput(ctx, 'ERROR', `SW=${swHex(sw)}, expected 9000`);
@@ -323,7 +327,11 @@ function handleActionResult(msg: Record<string, unknown>): void {
       // GET STATUS succeeded: save metadata, proceed to READ BINARY
       ctx.getStatusResponse = data;
       emitOutput(ctx, 'INFO', `GET STATUS OK, metadata: ${data.length} bytes`);
-      emitOutput(ctx, 'DATA', { get_status_response: data });
+      emitOutput(
+        ctx,
+        'DATA',
+        `GET STATUS response: ${JSON.stringify({ get_status_response: data })}`,
+      );
 
       ctx.step = 'WAIT_READ_BINARY';
       ctx.retryCount = 0;
@@ -338,11 +346,11 @@ function handleActionResult(msg: Record<string, unknown>): void {
 
       emitOutput(ctx, 'INFO', `READ BINARY OK, ${data.length} bytes received`);
       emitOutput(ctx, 'INFO', `ICCID: ${iccid}`);
-      emitOutput(ctx, 'DATA', {
-        iccid,
-        raw_hex: Buffer.from(data).toString('hex').toUpperCase(),
-        bytes_count: data.length,
-      });
+      emitOutput(
+        ctx,
+        'DATA',
+        `ICCID data: ${JSON.stringify({ iccid, raw_hex: Buffer.from(data).toString('hex').toUpperCase(), bytes_count: data.length })}`,
+      );
 
       finishSuccess(ctx, {
         iccid,
@@ -376,11 +384,11 @@ function main(): void {
       try {
         const msg = JSON.parse(line) as Record<string, unknown>;
 
-        if (msg.type === 'start') {
+        if (msg['type'] === 'start') {
           handleStart(msg);
-        } else if (msg.type === 'action_result') {
+        } else if (msg['type'] === 'action_result') {
           handleActionResult(msg);
-        } else if (msg.type === 'stop') {
+        } else if (msg['type'] === 'stop') {
           const ctx = (global as unknown as { _ctx?: ExecutionContext })._ctx;
           if (ctx) {
             emitOutput(ctx, 'INFO', 'Received stop signal');

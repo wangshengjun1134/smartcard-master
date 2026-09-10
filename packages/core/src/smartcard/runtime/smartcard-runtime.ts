@@ -23,7 +23,7 @@ import { ActionExecutor } from './action-executor.js';
 import { SkillExecutor } from './skill-executor.js';
 import { SkillRuntime } from './skill-runtime.js';
 import { OperationLog, type SmartCardOperation } from './operation-log.js';
-import type { CardSession } from './types.js';
+import type { CardSession, SkillAction } from './types.js';
 
 /**
  * Process-level facade for smart-card operations. Owns the transport, the
@@ -189,9 +189,24 @@ export class SmartCardRuntime {
       // Subscribe to skill_action messages and execute them through ActionExecutor
       handle.onAction(async (actionMsg) => {
         try {
-          const actionResult = await this.actionExecutor.execute(
-            actionMsg.action,
-          );
+          // Map IPC action (uses 'id') to SkillAction (uses 'actionId')
+          const action = actionMsg.action;
+          const skillAction: SkillAction = {
+            actionId: action.id,
+            type: action.type as SkillAction['type'],
+            name: action.name,
+            description: action.description,
+            ...(action.apdu && { apdu: action.apdu }),
+            ...(action.sensitive !== undefined && {
+              sensitive: action.sensitive,
+            }),
+            ...(action.milliseconds !== undefined && {
+              milliseconds: action.milliseconds,
+            }),
+            ...(action.readerId && { readerId: action.readerId }),
+          } as SkillAction;
+
+          const actionResult = await this.actionExecutor.execute(skillAction);
           // Send result back to skill
           handle.send({
             type: 'action_result',
@@ -201,11 +216,12 @@ export class SmartCardRuntime {
             success: actionResult.success,
             error: actionResult.error,
             // Action-specific fields
-            atr: (actionResult as unknown as Record<string, unknown>).atr as
+            atr: (actionResult as unknown as Record<string, unknown>)['atr'] as
               | string
               | undefined,
-            response: (actionResult as unknown as Record<string, unknown>)
-              .response as { sw: number; data: number[] } | undefined,
+            response: (actionResult as unknown as Record<string, unknown>)[
+              'response'
+            ] as { sw: number; data: number[] } | undefined,
           });
         } catch (err) {
           // Send error result back to skill
