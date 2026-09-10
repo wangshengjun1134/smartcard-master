@@ -136,7 +136,7 @@
 }
 
 .message {
-  color: var(--foreground);
+  color: inherit;
   word-break: break-word;
 }
 
