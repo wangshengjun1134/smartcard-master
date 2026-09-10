@@ -395,7 +395,12 @@ export function SmartCardConsole({
         continue;
       }
 
-      addConsoleLine(`> ${line}`, 'input');
+      // APDU hex strings are already logged from the SSE operation stream,
+      // so skip the manual echo to avoid a duplicate "> " line.
+      const isApdu = !line.startsWith('/') && /^[0-9a-fA-F\s]+$/.test(line);
+      if (!isApdu) {
+        addConsoleLine(`> ${line}`, 'input');
+      }
 
       try {
         const response = await executeCommand(line);
