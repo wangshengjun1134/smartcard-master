@@ -11,6 +11,7 @@ import type { SkillDefinition } from '../skills/types.js';
 import type { SkillExecutionHandle, SkillHost } from './skill-host.js';
 import type {
   RuntimeToSkillMessage,
+  SkillActionMessage,
   SkillToRuntimeMessage,
 } from './ipc-protocol.js';
 
@@ -71,6 +72,7 @@ function createHandle(
   );
 
   let stdoutBuffer = '';
+  const actionListeners: Array<(action: SkillActionMessage) => void> = [];
 
   child.stdout?.on('data', (chunk: Buffer) => {
     stdoutBuffer += chunk.toString();
@@ -83,6 +85,11 @@ function createHandle(
         const msg = JSON.parse(line) as SkillToRuntimeMessage;
         if (msg.type === 'execution_finished') {
           finishedResolve(msg);
+        } else if (msg.type === 'skill_action') {
+          // Notify action listeners
+          for (const listener of actionListeners) {
+            listener(msg as SkillActionMessage);
+          }
         }
       } catch {
         // Ignore parse errors
@@ -126,6 +133,10 @@ function createHandle(
         ),
       ]);
       return finishedPromise;
+    },
+
+    onAction(listener: (action: SkillActionMessage) => void): void {
+      actionListeners.push(listener);
     },
   };
 }

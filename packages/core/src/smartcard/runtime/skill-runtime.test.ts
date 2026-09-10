@@ -24,6 +24,7 @@ describe('SkillRuntime', () => {
         executionId: 'test-123',
         status: 'SUCCESS',
       } as SkillToRuntimeMessage),
+      onAction: vi.fn(),
     };
 
     const mockNodeHost: SkillHost = {
@@ -93,6 +94,7 @@ describe('SkillRuntime', () => {
       send: sendMock,
       stop: vi.fn(),
       finished: vi.fn().mockReturnValue(finishedPromise),
+      onAction: vi.fn(),
     };
 
     const mockHost: SkillHost = {

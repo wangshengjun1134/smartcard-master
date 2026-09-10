@@ -186,6 +186,40 @@ export class SmartCardRuntime {
     try {
       const handle = await this.skillRuntime.start(skillDef, packagePath);
 
+      // Subscribe to skill_action messages and execute them through ActionExecutor
+      handle.onAction(async (actionMsg) => {
+        try {
+          const actionResult = await this.actionExecutor.execute(
+            actionMsg.action,
+          );
+          // Send result back to skill
+          handle.send({
+            type: 'action_result',
+            executionId: handle.executionId,
+            actionId: actionResult.actionId,
+            actionType: actionResult.actionType,
+            success: actionResult.success,
+            error: actionResult.error,
+            // Action-specific fields
+            atr: (actionResult as unknown as Record<string, unknown>).atr as
+              | string
+              | undefined,
+            response: (actionResult as unknown as Record<string, unknown>)
+              .response as { sw: number; data: number[] } | undefined,
+          });
+        } catch (err) {
+          // Send error result back to skill
+          handle.send({
+            type: 'action_result',
+            executionId: handle.executionId,
+            actionId: actionMsg.action.id,
+            actionType: actionMsg.action.type,
+            success: false,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      });
+
       // Send start message
       handle.send({
         type: 'start',
