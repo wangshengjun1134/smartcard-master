@@ -3,7 +3,6 @@ import {
   Send,
   Plus,
   Slash,
-  AtSign,
   ChevronRight,
   ChevronDown,
   ChevronLeft,
@@ -46,28 +45,6 @@ const SLASH_COMMANDS = [
   { name: 'clear', description: 'Clear console output', icon: '🧹' },
   { name: 'version', description: 'Show console version', icon: 'ℹ️' },
   { name: 'status', description: 'Show reader status', icon: '📊' },
-];
-
-// Mock data for @ mentions
-const MENTIONS = [
-  { name: 'Card-A1', type: 'card', icon: '🃏' },
-  { name: 'Card-B2', type: 'card', icon: '🃏' },
-  { name: 'Card-C3', type: 'card', icon: '🃏' },
-  { name: 'User-John', type: 'user', icon: '👤' },
-  { name: 'User-Jane', type: 'user', icon: '👤' },
-  { name: 'Workspace-Main', type: 'workspace', icon: '🏢' },
-];
-
-// Mock data for + menu
-const ADD_MENU_ITEMS = [
-  {
-    name: 'Select Card',
-    description: 'Select a card from workspace',
-    action: 'select',
-  },
-  { name: 'Create Card', description: 'Create a new card', action: 'create' },
-  { name: 'Upload File', description: 'Upload a file', action: 'upload' },
-  { name: 'Attach Image', description: 'Attach an image', action: 'image' },
 ];
 
 /** Render a smart-card operation into a console line. */
@@ -121,6 +98,7 @@ export function SmartCardConsole({
   const addMenuRef = useRef<HTMLDivElement>(null);
   const readerMenuRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Toggle state: remember the width before expanding
   const [prevWidth, setPrevWidth] = useState<number | null>(null);
@@ -232,20 +210,49 @@ export function SmartCardConsole({
     }
   }, [width, prevWidth, onWidthChange]);
 
+  // Handle file selection from @ file picker
+  const handleFileChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      // Reset file input so the same file can be selected again
+      event.target.value = '';
+
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+
+      const cursorPos = textarea.selectionStart;
+      const textBeforeCursor = inputValue.substring(0, cursorPos);
+      const textAfterCursor = inputValue.substring(cursorPos);
+
+      // Find the @ that triggered the picker
+      const lastAt = textBeforeCursor.lastIndexOf('@');
+      const replaceFrom = lastAt;
+      const insertText = `@${file.name} `;
+
+      const newValue =
+        textBeforeCursor.substring(0, replaceFrom) +
+        insertText +
+        textAfterCursor;
+
+      setInputValue(newValue);
+
+      setTimeout(() => {
+        const newCursorPos = replaceFrom + insertText.length;
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+        textarea.focus();
+      }, 0);
+    },
+    [inputValue],
+  );
+
   // Filter items based on query
   const filteredSlashCommands = SLASH_COMMANDS.filter((cmd) =>
     cmd.name.toLowerCase().includes(menuQuery.toLowerCase()),
   );
-  const filteredMentions = MENTIONS.filter((m) =>
-    m.name.toLowerCase().includes(menuQuery.toLowerCase()),
-  );
 
-  const currentMenuItems =
-    menuType === 'slash'
-      ? filteredSlashCommands
-      : menuType === 'at'
-        ? filteredMentions
-        : [];
+  const currentMenuItems = menuType === 'slash' ? filteredSlashCommands : [];
 
   // Handle input change
   const handleInputChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
@@ -278,9 +285,9 @@ export function SmartCardConsole({
     } else if (lastAt !== -1 && lastAt > lastSlash) {
       const afterAt = textBeforeCursor.substring(lastAt + 1);
       if (!afterAt.includes(' ')) {
-        setMenuType('at');
-        setMenuQuery(afterAt);
-        setMenuIndex(0);
+        // @ triggers file picker
+        setMenuType('none');
+        fileInputRef.current?.click();
       } else {
         setMenuType('none');
       }
@@ -289,7 +296,7 @@ export function SmartCardConsole({
     }
   };
 
-  // Insert menu item
+  // Insert menu item (slash command only)
   const insertMenuItem = useCallback(
     (item: (typeof currentMenuItems)[0]) => {
       const textarea = textareaRef.current;
@@ -299,18 +306,9 @@ export function SmartCardConsole({
       const textBeforeCursor = inputValue.substring(0, cursorPos);
       const textAfterCursor = inputValue.substring(cursorPos);
 
-      let insertText = '';
-      let replaceFrom = cursorPos;
-
-      if (menuType === 'slash') {
-        const lastSlash = textBeforeCursor.lastIndexOf('/');
-        replaceFrom = lastSlash;
-        insertText = `/${item.name} `;
-      } else if (menuType === 'at') {
-        const lastAt = textBeforeCursor.lastIndexOf('@');
-        replaceFrom = lastAt;
-        insertText = `@${item.name} `;
-      }
+      const lastSlash = textBeforeCursor.lastIndexOf('/');
+      const replaceFrom = lastSlash;
+      const insertText = `/${item.name} `;
 
       const newValue =
         textBeforeCursor.substring(0, replaceFrom) +
@@ -326,7 +324,7 @@ export function SmartCardConsole({
         textarea.focus();
       }, 0);
     },
-    [inputValue, menuType],
+    [inputValue],
   );
 
   // Handle key down
@@ -457,8 +455,8 @@ export function SmartCardConsole({
     return '';
   };
 
-  const handleAddMenuItemClick = (item: (typeof ADD_MENU_ITEMS)[0]) => {
-    setInputValue(`/${item.action} `);
+  const handleAddMenuItemClick = (action: string) => {
+    setInputValue(`/${action} `);
     setShowAddMenu(false);
     textareaRef.current?.focus();
   };
@@ -543,21 +541,12 @@ export function SmartCardConsole({
 
         {/* Composer - with border */}
         <div className={styles.composer} ref={composerRef}>
-          {/* Slash/At Menu */}
+          {/* Slash Menu */}
           {menuType !== 'none' && currentMenuItems.length > 0 && (
             <div className={styles.menu} ref={menuRef}>
               <div className={styles.menuHeader}>
-                {menuType === 'slash' ? (
-                  <>
-                    <Slash className={styles.menuHeaderIcon} />
-                    <span>Commands</span>
-                  </>
-                ) : (
-                  <>
-                    <AtSign className={styles.menuHeaderIcon} />
-                    <span>Mentions</span>
-                  </>
-                )}
+                <Slash className={styles.menuHeaderIcon} />
+                <span>Commands</span>
               </div>
               <div className={styles.menuItems}>
                 {currentMenuItems.map((item, index) => (
@@ -575,31 +564,15 @@ export function SmartCardConsole({
                         .join(' ')}
                       onClick={() => insertMenuItem(item)}
                     >
-                      {menuType === 'slash' ? (
-                        <>
-                          <span className={styles.menuItemIcon}>
-                            {(item as (typeof SLASH_COMMANDS)[0]).icon}
-                          </span>
-                          <span className={styles.menuItemName}>
-                            /{(item as (typeof SLASH_COMMANDS)[0]).name}
-                          </span>
-                          <span className={styles.menuItemDesc}>
-                            {(item as (typeof SLASH_COMMANDS)[0]).description}
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <span className={styles.menuItemIcon}>
-                            {(item as (typeof MENTIONS)[0]).icon}
-                          </span>
-                          <span className={styles.menuItemName}>
-                            @{(item as (typeof MENTIONS)[0]).name}
-                          </span>
-                          <span className={styles.menuItemType}>
-                            {(item as (typeof MENTIONS)[0]).type}
-                          </span>
-                        </>
-                      )}
+                      <span className={styles.menuItemIcon}>
+                        {(item as (typeof SLASH_COMMANDS)[0]).icon}
+                      </span>
+                      <span className={styles.menuItemName}>
+                        /{(item as (typeof SLASH_COMMANDS)[0]).name}
+                      </span>
+                      <span className={styles.menuItemDesc}>
+                        {(item as (typeof SLASH_COMMANDS)[0]).description}
+                      </span>
                     </button>
                   </>
                 ))}
@@ -617,7 +590,7 @@ export function SmartCardConsole({
             {!inputValue && (
               <div className={styles.placeholder}>
                 直接发送指令，内容不进入任务上下文
-                <br />/ 选择快捷指令 @ 指定脚本文件
+                <br />/ 选择快捷指令 @ 选择文件
               </div>
             )}
             <textarea
@@ -627,6 +600,12 @@ export function SmartCardConsole({
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               rows={2}
+            />
+            <input
+              ref={fileInputRef}
+              type="file"
+              style={{ display: 'none' }}
+              onChange={handleFileChange}
             />
           </div>
 
@@ -644,14 +623,14 @@ export function SmartCardConsole({
                 {showAddMenu && (
                   <div className={styles.addMenu} ref={addMenuRef}>
                     <div className={styles.addMenuTitle}>Quick Actions</div>
-                    {ADD_MENU_ITEMS.map((item) => (
+                    {SLASH_COMMANDS.map((cmd) => (
                       <button
-                        key={item.action}
+                        key={cmd.name}
                         className={styles.addMenuItem}
-                        onClick={() => handleAddMenuItemClick(item)}
+                        onClick={() => handleAddMenuItemClick(cmd.name)}
                       >
                         <span className={styles.addMenuItemName}>
-                          {item.name}
+                          /{cmd.name}
                         </span>
                         <ChevronRight className={styles.addMenuItemChevron} />
                       </button>
