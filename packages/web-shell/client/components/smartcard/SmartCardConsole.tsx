@@ -34,20 +34,18 @@ import {
   type SmartCardOperation,
 } from './smartcard-api.js';
 
-// Mock data for slash commands
+// Supported slash commands
 const SLASH_COMMANDS = [
+  { name: 'help', description: 'Show available commands', icon: '❓' },
   {
-    name: 'select',
-    description: 'Select a card from the workspace',
-    icon: '📋',
+    name: 'apdu',
+    description: 'Send APDU command (hex string)',
+    icon: '📡',
   },
-  { name: 'create', description: 'Create a new card', icon: '✨' },
-  { name: 'edit', description: 'Edit an existing card', icon: '✏️' },
-  { name: 'delete', description: 'Delete a card', icon: '🗑️' },
-  { name: 'list', description: 'List all cards', icon: '📄' },
-  { name: 'search', description: 'Search for cards', icon: '🔍' },
-  { name: 'move', description: 'Move a card to another location', icon: '📦' },
-  { name: 'copy', description: 'Copy a card', icon: '📋' },
+  { name: 'reset', description: 'Reset the smart card', icon: '🔄' },
+  { name: 'clear', description: 'Clear console output', icon: '🧹' },
+  { name: 'version', description: 'Show console version', icon: 'ℹ️' },
+  { name: 'status', description: 'Show reader status', icon: '📊' },
 ];
 
 // Mock data for @ mentions
@@ -563,42 +561,47 @@ export function SmartCardConsole({
               </div>
               <div className={styles.menuItems}>
                 {currentMenuItems.map((item, index) => (
-                  <button
-                    key={item.name}
-                    className={[
-                      styles.menuItem,
-                      index === menuIndex ? styles.menuItemActive : undefined,
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    onClick={() => insertMenuItem(item)}
-                  >
-                    {menuType === 'slash' ? (
-                      <>
-                        <span className={styles.menuItemIcon}>
-                          {(item as (typeof SLASH_COMMANDS)[0]).icon}
-                        </span>
-                        <span className={styles.menuItemName}>
-                          /{(item as (typeof SLASH_COMMANDS)[0]).name}
-                        </span>
-                        <span className={styles.menuItemDesc}>
-                          {(item as (typeof SLASH_COMMANDS)[0]).description}
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <span className={styles.menuItemIcon}>
-                          {(item as (typeof MENTIONS)[0]).icon}
-                        </span>
-                        <span className={styles.menuItemName}>
-                          @{(item as (typeof MENTIONS)[0]).name}
-                        </span>
-                        <span className={styles.menuItemType}>
-                          {(item as (typeof MENTIONS)[0]).type}
-                        </span>
-                      </>
+                  <>
+                    {index === 1 && menuType === 'slash' && (
+                      <div key="separator" className={styles.menuSeparator} />
                     )}
-                  </button>
+                    <button
+                      key={item.name}
+                      className={[
+                        styles.menuItem,
+                        index === menuIndex ? styles.menuItemActive : undefined,
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                      onClick={() => insertMenuItem(item)}
+                    >
+                      {menuType === 'slash' ? (
+                        <>
+                          <span className={styles.menuItemIcon}>
+                            {(item as (typeof SLASH_COMMANDS)[0]).icon}
+                          </span>
+                          <span className={styles.menuItemName}>
+                            /{(item as (typeof SLASH_COMMANDS)[0]).name}
+                          </span>
+                          <span className={styles.menuItemDesc}>
+                            {(item as (typeof SLASH_COMMANDS)[0]).description}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className={styles.menuItemIcon}>
+                            {(item as (typeof MENTIONS)[0]).icon}
+                          </span>
+                          <span className={styles.menuItemName}>
+                            @{(item as (typeof MENTIONS)[0]).name}
+                          </span>
+                          <span className={styles.menuItemType}>
+                            {(item as (typeof MENTIONS)[0]).type}
+                          </span>
+                        </>
+                      )}
+                    </button>
+                  </>
                 ))}
               </div>
               <div className={styles.menuFooter}>

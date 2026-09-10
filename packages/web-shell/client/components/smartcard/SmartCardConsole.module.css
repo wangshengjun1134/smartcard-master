@@ -520,6 +520,12 @@
   max-height: 200px;
 }
 
+.menuSeparator {
+  height: 1px;
+  margin: 4px 8px;
+  background: var(--border);
+}
+
 .menuItem {
   display: flex;
   align-items: center;
