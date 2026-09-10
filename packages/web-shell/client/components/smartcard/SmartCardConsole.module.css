@@ -118,15 +118,11 @@
   word-break: break-all;
 }
 
-.consoleInput {
-  color: var(--primary);
-}
-
-.consoleOutput {
+.consoleApdu {
   color: var(--foreground);
 }
 
-.consoleOutputMuted {
+.consoleMuted {
   color: var(--muted-foreground);
 }
 
