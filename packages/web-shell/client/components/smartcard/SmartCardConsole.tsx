@@ -210,7 +210,7 @@ export function SmartCardConsole({
     }
   }, [width, prevWidth, onWidthChange]);
 
-  // Handle file selection from @ file picker
+  // Handle file selection from @ file picker — read file content and insert into textarea
   const handleFileChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
@@ -229,22 +229,32 @@ export function SmartCardConsole({
       // Find the @ that triggered the picker
       const lastAt = textBeforeCursor.lastIndexOf('@');
       const replaceFrom = lastAt;
-      const insertText = `@${file.name} `;
 
-      const newValue =
-        textBeforeCursor.substring(0, replaceFrom) +
-        insertText +
-        textAfterCursor;
+      // Read file content and insert it after the @ mention
+      const reader = new FileReader();
+      reader.onload = () => {
+        const fileContent = reader.result as string;
+        const insertText = `@${file.name}\n${fileContent}\n`;
 
-      setInputValue(newValue);
+        const newValue =
+          textBeforeCursor.substring(0, replaceFrom) +
+          insertText +
+          textAfterCursor;
 
-      setTimeout(() => {
-        const newCursorPos = replaceFrom + insertText.length;
-        textarea.setSelectionRange(newCursorPos, newCursorPos);
-        textarea.focus();
-      }, 0);
+        setInputValue(newValue);
+
+        setTimeout(() => {
+          const newCursorPos = replaceFrom + insertText.length;
+          textarea.setSelectionRange(newCursorPos, newCursorPos);
+          textarea.focus();
+        }, 0);
+      };
+      reader.onerror = () => {
+        addConsoleLine(`Failed to read file: ${file.name}`, 'output');
+      };
+      reader.readAsText(file);
     },
-    [inputValue],
+    [inputValue, addConsoleLine],
   );
 
   // Filter items based on query
@@ -379,6 +389,12 @@ export function SmartCardConsole({
     }
 
     for (const line of lines) {
+      // Skip @ file markers — they are labels, not commands
+      if (line.startsWith('@')) {
+        addConsoleLine(`> ${line}`, 'input');
+        continue;
+      }
+
       addConsoleLine(`> ${line}`, 'input');
 
       try {
