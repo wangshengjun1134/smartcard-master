@@ -89,6 +89,7 @@ import {
   SlashIcon,
   UploadIcon,
   XIcon,
+  BookOpenIcon,
 } from 'lucide-react';
 import { FileTypeIcon } from './FileTypeIcon';
 import { WorkspaceSelector } from './WorkspaceSelector';
@@ -137,6 +138,7 @@ export type ComposerToolbarAction =
   | 'widthMode'
   | 'voice'
   | 'workspace'
+  | 'referenceKnowledge'
   // Unlike the actions above, `addMenu` is never shown unless the host
   // lists it explicitly in `visibleToolbarActions` — the generic gate
   // defaults to "show" when the prop is absent, so `+` checks the prop
@@ -169,6 +171,7 @@ const ACTIVE_TOOLBAR_ACTIONS = [
   'widthMode',
   'voice',
   'workspace',
+  'referenceKnowledge',
 ] as const satisfies readonly ComposerToolbarAction[];
 const ACTIVE_TOOLBAR_ACTION_SET = new Set<ComposerToolbarAction>(
   ACTIVE_TOOLBAR_ACTIONS,
@@ -285,6 +288,12 @@ interface ChatEditorProps {
   onImagePreview?: (src: string, alt?: string) => void;
   onAttachmentPreview?: (file: AttachmentPreviewRequest) => void;
   compactOverlays?: boolean;
+  /** Whether knowledge reference is enabled for the current session. */
+  knowledgeEnabled?: boolean;
+  /** Whether knowledge reference is currently active (toggled on). */
+  knowledgeActive?: boolean;
+  /** Toggle knowledge reference on/off. */
+  onToggleKnowledge?: () => void;
 }
 
 const CHAT_EDITOR_THEME = {
@@ -1554,6 +1563,9 @@ export const ChatEditor = memo(
       onImagePreview,
       onAttachmentPreview,
       compactOverlays = false,
+      knowledgeEnabled = false,
+      knowledgeActive = false,
+      onToggleKnowledge,
     } = props;
 
     const {
@@ -3502,6 +3514,25 @@ export const ChatEditor = memo(
                     />
                   </>
                 )}
+                {showToolbarAction('referenceKnowledge') &&
+                  knowledgeEnabled && (
+                    <button
+                      className={styles.toolbarBtn}
+                      type="button"
+                      title={t('editor.referenceKnowledge')}
+                      aria-label={t('editor.referenceKnowledge')}
+                      aria-pressed={knowledgeActive}
+                      onClick={onToggleKnowledge}
+                      style={{
+                        backgroundColor: knowledgeActive
+                          ? 'var(--accent-color, #4a9eff)'
+                          : undefined,
+                        color: knowledgeActive ? '#fff' : undefined,
+                      }}
+                    >
+                      <BookOpenIcon size={16} strokeWidth={1.5} />
+                    </button>
+                  )}
                 <button
                   className={
                     composerPreparing || showCancelButton

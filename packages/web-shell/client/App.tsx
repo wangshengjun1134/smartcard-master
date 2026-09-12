@@ -159,6 +159,7 @@ import {
   type SideTaskListItem,
 } from './components/artifacts/ArtifactPanel';
 import { SmartCardConsole } from './components/smartcard/SmartCardConsole';
+import { KnowledgePage } from './components/smartcard/KnowledgePage';
 import { releaseWebTerminal } from './components/terminal/TerminalPanel';
 import { Drawer, DrawerContent, DrawerTitle } from './components/ui/drawer';
 import type {
@@ -450,6 +451,7 @@ const DEFAULT_COMPOSER_TOOLBAR_ACTIONS = [
   'widthMode',
   'voice',
   'workspace',
+  'referenceKnowledge',
 ] as const satisfies readonly ComposerToolbarAction[];
 const DEFAULT_EMPTY_COMPOSER_TOOLBAR_ACTIONS = [
   ...DEFAULT_COMPOSER_TOOLBAR_ACTIONS,
@@ -1405,7 +1407,13 @@ function imageTabId(src: string): string {
 }
 
 type ChatWidthMode = `${typeof DEFAULT_CHAT_MAX_WIDTH}` | 'wide';
-type MainView = 'chat' | 'cockpit' | 'scheduledTasks' | 'goals' | 'split';
+type MainView =
+  | 'chat'
+  | 'cockpit'
+  | 'scheduledTasks'
+  | 'goals'
+  | 'knowledge'
+  | 'split';
 
 const CHAT_WIDTH_STORAGE_KEY = 'qwen-code-web-shell-chat-width';
 const CHAT_SHELL_HORIZONTAL_PADDING = 40;
@@ -5603,6 +5611,9 @@ export function App({
   // is one of the activePanel values below.)
   const [mainView, setMainView] = useState<MainView>('chat');
   const mainViewRef = useRef(mainView);
+  // Knowledge reference state for the composer
+  const [knowledgeActive, setKnowledgeActive] = useState(false);
+  const [knowledgeEnabled, _setKnowledgeEnabled] = useState(true);
   const showChat = useCallback(() => {
     if (cockpitViewRequested()) updateCockpitLocation(false);
     setMainView('chat');
@@ -5920,6 +5931,7 @@ export function App({
     if (
       mainView === 'scheduledTasks' ||
       mainView === 'goals' ||
+      mainView === 'knowledge' ||
       mainView === 'cockpit' ||
       mainView === 'split'
     ) {
@@ -5979,6 +5991,15 @@ export function App({
     showChat();
     setMainView('goals');
   }, [showChat]);
+  const openKnowledge = useCallback(() => {
+    splitClassificationGenerationRef.current += 1;
+    setActivePanel(null);
+    showChat();
+    setMainView('knowledge');
+  }, [showChat]);
+  const toggleKnowledge = useCallback(() => {
+    setKnowledgeActive((prev) => !prev);
+  }, []);
   const openSessionDrawer = useCallback(() => {
     if (!sidebarOptions.enabled) return;
     splitClassificationGenerationRef.current += 1;
@@ -6402,7 +6423,11 @@ export function App({
     if (cockpitViewRequested()) updateCockpitLocation(false, true);
     if (mainView === 'cockpit') {
       setMainView('chat');
-    } else if (mainView === 'scheduledTasks' || mainView === 'goals') {
+    } else if (
+      mainView === 'scheduledTasks' ||
+      mainView === 'goals' ||
+      mainView === 'knowledge'
+    ) {
       setMainView('chat');
     }
   }, [
@@ -14273,6 +14298,10 @@ export function App({
                     closeMobileDrawer();
                     openGoals();
                   }}
+                  onOpenKnowledge={() => {
+                    closeMobileDrawer();
+                    openKnowledge();
+                  }}
                   onOpenSessions={() => {
                     closeMobileDrawer();
                     openPanel('sessions');
@@ -15118,6 +15147,39 @@ export function App({
                       }}
                       onError={reportError}
                     />
+                  </div>
+                </div>
+              )}
+              {workspaceContextActive && mainView === 'knowledge' && (
+                <div className={styles.fullPage} data-testid="knowledge-page">
+                  <div className={styles.fullPageHeader}>
+                    <button
+                      type="button"
+                      className={styles.fullPageBack}
+                      onClick={showChat}
+                      aria-label={t('common.back')}
+                      title={t('common.back')}
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="18"
+                        height="18"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M15 18l-6-6 6-6" />
+                      </svg>
+                    </button>
+                    <div className={styles.fullPageTitle}>
+                      {t('sidebar.knowledge')}
+                    </div>
+                  </div>
+                  <div className={styles.fullPageBody}>
+                    <KnowledgePage />
                   </div>
                 </div>
               )}
@@ -16014,6 +16076,9 @@ export function App({
                           composerInput={composerInput}
                           composerInputVersion={composerInputVersion}
                           placeholderText={composerPlaceholderText}
+                          knowledgeEnabled={knowledgeEnabled}
+                          knowledgeActive={knowledgeActive}
+                          onToggleKnowledge={toggleKnowledge}
                         />
                         {CustomComposerFooter && (
                           <CustomComposerFooter

@@ -57,6 +57,7 @@ import {
   SquarePenIcon,
   SunIcon,
   TargetIcon,
+  BookOpenIcon,
 } from 'lucide-react';
 import { WebShellThemeId, type WebShellTheme } from '../../themeContext';
 import { useI18n } from '../../i18n';
@@ -235,7 +236,8 @@ export type WebShellSidebarPrimaryNavItem =
   | 'plugins'
   | 'channels'
   | 'scheduledTasks'
-  | 'goals';
+  | 'goals'
+  | 'knowledge';
 
 export interface WebShellSidebarPrimaryNavOptions {
   /** Built-in primary nav entries to show. Defaults to all. */
@@ -267,6 +269,7 @@ const DEFAULT_PRIMARY_NAV_ITEMS: readonly WebShellSidebarPrimaryNavItem[] = [
   'channels',
   'scheduledTasks',
   'goals',
+  'knowledge',
 ];
 
 export type WebShellSidebarSessionActionItem =
@@ -373,6 +376,7 @@ interface WebShellSidebarProps {
   onOpenDaemonStatus: () => void;
   onOpenScheduledTasks: () => void;
   onOpenGoals: () => void;
+  onOpenKnowledge: () => void;
   onOpenSessions: () => void;
   /**
    * Whether to offer the Session Overview entry point. The table handles
@@ -875,6 +879,7 @@ export function WebShellSidebar({
   onOpenDaemonStatus,
   onOpenScheduledTasks,
   onOpenGoals,
+  onOpenKnowledge,
   onOpenSessions,
   canOpenSessionsOverview,
   onOpenWorkspacesOverview,
@@ -933,7 +938,8 @@ export function WebShellSidebar({
       (primaryNavItems.has('plugins') ||
         primaryNavItems.has('channels') ||
         primaryNavItems.has('scheduledTasks') ||
-        primaryNavItems.has('goals'))) ||
+        primaryNavItems.has('goals') ||
+        primaryNavItems.has('knowledge'))) ||
     Boolean(primaryNavOptions?.render);
   const sessionActionItems = useMemo(
     () => new Set(sessionActionsOptions?.items ?? DEFAULT_SESSION_ACTION_ITEMS),
@@ -5322,6 +5328,20 @@ export function WebShellSidebar({
                     <TargetIcon size={16} strokeWidth={1.2} />
                   </span>
                   {!collapsed && <span>{t('sidebar.goals')}</span>}
+                </button>
+              )}
+              {projectFeaturesEnabled && primaryNavItems.has('knowledge') && (
+                <button
+                  className={styles.pluginButton}
+                  type="button"
+                  title={t('sidebar.knowledge')}
+                  aria-label={t('sidebar.knowledge')}
+                  onClick={onOpenKnowledge}
+                >
+                  <span className={styles.navIcon}>
+                    <BookOpenIcon size={16} strokeWidth={1.2} />
+                  </span>
+                  {!collapsed && <span>{t('sidebar.knowledge')}</span>}
                 </button>
               )}
               {primaryNavOptions?.render?.()}
