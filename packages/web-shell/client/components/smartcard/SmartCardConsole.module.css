@@ -58,28 +58,38 @@
   font-size: 14px;
 }
 
-/* Width Toggle Button */
-.toggleWidthButton {
+/* Width Toggle Button - matches ChatEditor toolBtn style */
+.toolBtn {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 28px;
+  gap: 4px;
   height: 28px;
+  padding: 0 8px;
   border: none;
-  border-radius: 6px;
   background: transparent;
   color: var(--muted-foreground);
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: 13px;
+  line-height: 1;
+  border-radius: 6px;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
   flex-shrink: 0;
 }
 
-.toggleWidthButton:hover {
-  background: var(--accent);
-  color: var(--accent-foreground);
+.toolBtn:hover {
+  background: var(--chat-editor-bg-tertiary, var(--accent));
+  color: var(--chat-editor-text-primary, var(--accent-foreground));
 }
 
-.toggleWidthIcon {
+.toolBtnIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toolBtnIcon svg {
   width: 16px;
   height: 16px;
 }

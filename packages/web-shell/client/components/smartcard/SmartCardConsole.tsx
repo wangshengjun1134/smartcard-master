@@ -5,8 +5,6 @@ import {
   Slash,
   ChevronRight,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight as ChevronRightIcon,
   X,
   Usb,
   Unplug,
@@ -76,6 +74,34 @@ export interface SmartCardConsoleProps {
 }
 
 type MenuType = 'none' | 'slash' | 'at';
+
+function WidthModeIcon({ mode }: { mode: 'narrow' | 'wide' }) {
+  if (mode === 'wide') {
+    return (
+      <svg viewBox="0 0 1024 1024" aria-hidden="true">
+        <path
+          d="M550.012 486.537a8.16 8.16 0 0 1 8.17-8.17h305.36l-111.88-111.89c-3.19-3.19-3.19-8.4 0-11.59l25.08-25.08c3.19-3.19 8.4-3.19 11.59 0l168.61 168.6c3.19 3.19 3.19 8.4 0 11.59l-164.47 168.67c-3.19 3.19-8.4 3.19-11.59 0l-25.61-25.61c-3.19-3.19-3.19-8.4 0-11.59l106.58-110.78-303.62 0.11c-4.52 0-8.23-3.71-8.23-8.23v-36.03z"
+          fill="currentColor"
+          transform="translate(-483.41 0)"
+        />
+        <path
+          d="M473.532 524.327a8.16 8.16 0 0 1-8.17 8.17h-305.36l111.88 111.88c3.19 3.19 3.19 8.4 0 11.59l-25.09 25.09c-3.19 3.19-8.4 3.19-11.59 0l-168.6-168.61c-3.19-3.19-3.19-8.4 0-11.59l164.47-168.67c3.19-3.19 8.4-3.19 11.59 0l25.61 25.61c3.19 3.19 3.19 8.4 0 11.59l-106.59 110.78 303.62-0.11c4.52 0 8.23 3.71 8.23 8.23v36.04z"
+          fill="currentColor"
+          transform="translate(483.41 0)"
+        />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 1024 1024" aria-hidden="true">
+      <path
+        d="M473.532 524.327a8.16 8.16 0 0 1-8.17 8.17h-305.36l111.88 111.88c3.19 3.19 3.19 8.4 0 11.59l-25.09 25.09c-3.19 3.19-8.4 3.19-11.59 0l-168.6-168.61c-3.19-3.19-3.19-8.4 0-11.59l164.47-168.67c3.19-3.19 8.4-3.19 11.59 0l25.61 25.61c3.19 3.19 3.19 8.4 0 11.59l-106.59 110.78 303.62-0.11c4.52 0 8.23 3.71 8.23 8.23v36.04zM550.012 486.537a8.16 8.16 0 0 1 8.17-8.17h305.36l-111.88-111.89c-3.19-3.19-3.19-8.4 0-11.59l25.08-25.08c3.19-3.19 8.4-3.19 11.59 0l168.61 168.6c3.19 3.19 3.19 8.4 0 11.59l-164.47 168.67c-3.19 3.19-8.4 3.19-11.59 0l-25.61-25.61c-3.19-3.19-3.19-8.4 0-11.59l106.58-110.78-303.62 0.11c-4.52 0-8.23-3.71-8.23-8.23v-36.03z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
 
 export function SmartCardConsole({
   className,
@@ -540,15 +566,13 @@ export function SmartCardConsole({
       <div className={styles.header}>
         <div className={styles.title}>SmartCard Console</div>
         <button
-          className={styles.toggleWidthButton}
+          className={styles.toolBtn}
           onClick={handleWidthToggle}
           title={width < 800 ? 'Expand console' : 'Collapse console'}
         >
-          {width < 800 ? (
-            <ChevronRightIcon className={styles.toggleWidthIcon} />
-          ) : (
-            <ChevronLeft className={styles.toggleWidthIcon} />
-          )}
+          <span className={styles.toolBtnIcon}>
+            <WidthModeIcon mode={width < 800 ? 'narrow' : 'wide'} />
+          </span>
         </button>
       </div>
 
