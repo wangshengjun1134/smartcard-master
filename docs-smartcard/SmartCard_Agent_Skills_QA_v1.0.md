@@ -293,7 +293,7 @@ wmic process where "name='node.exe'" get ProcessId,CommandLine /format:list
 :: Step 2. 清理残留进程 + 等待文件句柄释放
 :: ============================================================
 npm run clean:dev
-timeout /t 5 /nobreak >nul
+ timeout /t 5 /nobreak >nul
 
 :: ============================================================
 :: Step 3. 锁探测（可选但强烈建议，10 秒确认能否安全构建）

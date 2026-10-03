@@ -1,190 +1,196 @@
 <div align="center">
 
-[![npm version](https://img.shields.io/npm/v/@qwen-code/qwen-code.svg)](https://www.npmjs.com/package/@qwen-code/qwen-code)
-[![License](https://img.shields.io/github/license/QwenLM/qwen-code.svg)](./LICENSE)
+[![License](https://img.shields.io/github/license/wangshengjun1134/smartcard-master.svg)](./LICENSE)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D22.0.0-brightgreen.svg)](https://nodejs.org/)
-[![Downloads](https://img.shields.io/npm/dm/@qwen-code/qwen-code.svg)](https://www.npmjs.com/package/@qwen-code/qwen-code)
 
-<a href="https://trendshift.io/repositories/15287" target="_blank"><img src="https://trendshift.io/api/badge/repositories/15287" alt="QwenLM%2Fqwen-code | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-
-**The open-source AI coding agent that lives in your terminal.**
-
-<a href="https://qwenlm.github.io/qwen-code-docs/zh/users/overview">中文</a> |
-<a href="https://qwenlm.github.io/qwen-code-docs/de/users/overview">Deutsch</a> |
-<a href="https://qwenlm.github.io/qwen-code-docs/fr/users/overview">français</a> |
-<a href="https://qwenlm.github.io/qwen-code-docs/ja/users/overview">日本語</a> |
-<a href="https://qwenlm.github.io/qwen-code-docs/ru/users/overview">Русский</a> |
-<a href="https://qwenlm.github.io/qwen-code-docs/pt-BR/users/overview">Português (Brasil)</a> |
-<a href="https://qwenlm.github.io/qwen-code-docs/ko/users/overview">한국어</a>
+**SmartCard Agent — 基于 Qwen Code 构建的智能卡 Agent 应用**
 
 </div>
 
-## Why Qwen Code?
+## 项目简介
 
-- **Agentic out of the box** — Auto-Memory, Auto-Skills, SubAgents, Agent Teams, and MCP. Dynamic workflows, zero setup.
-- **Open-source, inside and out** — The framework and the Qwen models are open-source. They evolve together. No vendor lock-in.
-- **Multi-protocol** — Supports OpenAI, Anthropic, Gemini, and Qwen APIs. Any third-party provider or local model (Ollama / vLLM). Switch at runtime.
-- **Beyond the terminal** — IDE plugins, Desktop app, daemon mode, SDKs, and IM bots (Telegram / DingTalk / WeChat / Feishu).
+SmartCard Master 是从 [Qwen Code](https://github.com/QwenLM/qwen-code) fork 的专用 Agent 应用，专注于智能卡（SmartCard）领域的自动化操作和开发。
 
-> [!TIP]
-> Qwen Code is actively iterating on itself — using its own agent and models to file issues, submit PRs, review code, and run tests. Powered by the community, driven by AI.
+本项目保留了 Qwen Code 的核心 Agent 能力（Auto-Memory、Auto-Skills、SubAgents、MCP 等），并深度集成了 SmartCard 专用工具链，包括：
 
-## Installation
+- **APDU 命令交互** — 通过 Web Shell 控制台直接与智能卡通信，支持 hex APDU 命令发送和实时响应显示
+- **SmartCard Agent Tools** — 内置 connect、disconnect、send-apdu、reset、execute-skill 等 Agent 工具
+- **Skill 运行时** — 支持 Node.js 和 Python 两种 Skill Host，可在隔离进程中执行智能卡操作（如 SCP02 安全通道、ICCID 读取等）
+- **Daemon 独占 PC/SC** — Daemon（`qwen serve`）作为唯一的 PC/SC 连接持有者，避免多进程竞争
+- **SSE 实时日志** — 所有 SmartCard 操作日志通过 SSE 事件流实时推送到前端控制台
 
-**Linux / macOS:**
+## 架构概览
+
+```
+┌─────────────┐     HTTP+SSE      ┌──────────────────┐     Direct      ┌──────────────┐
+│  Web Shell  │ ────────────────→ │  Daemon (serve)  │ ──────────────→ │ Core SmartCard│
+│  (React UI) │ ←──────────────── │  qwen serve      │                 │ (Runtime)     │
+└─────────────┘     SSE Events    └──────────────────┘                 └───────┬───────┘
+                                                                              │
+                                                                         CardTransport
+                                                                              │
+                                                                              ▼
+                                                                    ┌──────────────────┐
+                                                                    │  PC/SC Sidecar   │
+                                                                    │  (Rust 子进程)    │
+                                                                    └────────┬─────────┘
+                                                                             │
+                                                                             ▼
+                                                                    ┌──────────────────┐
+                                                                    │  智能卡硬件        │
+                                                                    │  (PC/SC Reader)   │
+                                                                    └──────────────────┘
+```
+
+## 安装与构建
+
+本项目与 Qwen Code 使用相同的构建流程。
+
+### 前置要求
+
+- **Node.js >= 22**（Ink 7 + React 19.2 要求）
+- npm（随 Node.js 安装）
+
+### 安装依赖
 
 ```bash
-curl -fsSL https://qwen-code-assets.oss-cn-hangzhou.aliyuncs.com/installation/install-qwen-standalone.sh | bash
+npm install
 ```
 
-**Windows:**
-
-```powershell
-irm https://qwen-code-assets.oss-cn-hangzhou.aliyuncs.com/installation/install-qwen-standalone.ps1 | iex
-```
-
-> Restart your terminal after installation to ensure environment variables take effect.
-
-<details>
-<summary>NPM / Homebrew</summary>
-
-**NPM** (requires [Node.js 22+](https://nodejs.org/)):
+### 构建
 
 ```bash
-npm install -g @qwen-code/qwen-code@latest
+npm run build      # 构建所有包（TypeScript 编译 + 资源复制）
+npm run build:all  # 构建所有内容（包括沙箱容器）
+npm run bundle     # 将 dist/ 打包为单个 dist/cli.js（需先 build）
 ```
 
-**Homebrew** (macOS / Linux):
+### 开发
 
 ```bash
-brew install qwen-code
+npm run dev        # 直接从 TypeScript 源码运行 CLI（无需 build）
 ```
 
-</details>
+使用 `DEV=true` 运行，对 `packages/core` 或 `packages/cli` 的更改会立即生效，无需重新构建。
 
-## Quick Start
+### Web Shell 开发
 
 ```bash
-qwen          # Launch interactive terminal UI
-# Inside the session:
-/auth         # Configure your provider and API key
+cd packages/web-shell && npm run dev
 ```
 
-See the [Authentication Guide](https://qwenlm.github.io/qwen-code-docs/en/users/configuration/auth/) and [Settings Reference](https://qwenlm.github.io/qwen-code-docs/en/users/configuration/settings/) for detailed setup.
+使用 vite 开发服务器进行热重载开发，无需完整构建周期。
 
-![Qwen Code](https://img.alicdn.com/imgextra/i2/O1CN01K0nwj41RM1Il8kB0t_!!6000000002096-2-tps-1544-1060.png)
+### Desktop Shell 构建
 
-## How to Use Qwen Code
-
-| Mode            | Command         | Use Case                                                                                                                                                                                                                                        |
-| --------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Interactive** | `qwen`          | Terminal UI with rich rendering, `@file` references, slash commands                                                                                                                                                                             |
-| **Headless**    | `qwen -p "..."` | Scripts, CI/CD, batch processing — no UI                                                                                                                                                                                                        |
-| **IDE**         | —               | [VS Code](https://qwenlm.github.io/qwen-code-docs/en/users/integration-vscode/), [Zed](https://qwenlm.github.io/qwen-code-docs/en/users/integration-zed/), [JetBrains](https://qwenlm.github.io/qwen-code-docs/en/users/integration-jetbrains/) |
-| **Desktop**     | —               | [Qwen Code Desktop](https://github.com/QwenLM/qwen-code/releases/tag/desktop-latest) — GUI for macOS, Windows, Linux                                                                                                                            |
-| **Daemon**      | `qwen serve`    | Shared agent session over HTTP+SSE (ACP). Multiple clients, one agent. _(experimental)_ [Docs](https://qwenlm.github.io/qwen-code-docs/en/users/qwen-serve)                                                                                     |
-| **SDK**         | —               | [TypeScript](./packages/sdk-typescript/README.md), [Python](./packages/sdk-python/README.md), [Java](./packages/sdk-java/qwencode/README.md)                                                                                                    |
-| **IM Bot**      | `qwen channel`  | Connect to Telegram, DingTalk, WeChat, or Feishu                                                                                                                                                                                                |
-
-<details>
-<summary>SDK example (Python)</summary>
-
-```python
-import asyncio
-
-from qwen_code_sdk import is_sdk_result_message, query
-
-
-async def main() -> None:
-    result = query(
-        "Summarize the repository layout.",
-        {
-            "cwd": "/path/to/project",
-            "path_to_qwen_executable": "qwen",
-        },
-    )
-
-    async for message in result:
-        if is_sdk_result_message(message):
-            print(message["result"])
-
-
-asyncio.run(main())
+```bash
+cd packages/desktop-shell
+npm run build:runtime    # 构建并打包 web-shell 到 runtime 目录
+npm run tauri dev        # 启动桌面应用开发模式
 ```
 
-</details>
+## 快速开始
 
-## Capabilities
-
-If you know Claude Code, you already know Qwen Code — and then some. We've put significant effort into [bringing Qwen Code to feature parity with Claude Code](https://github.com/wenshao/codeagents/blob/main/docs/comparison/qwen-code-improvement-report.md), improving both breadth and reliability across the board.
-
-| Feature                                                            | Qwen Code | Claude Code |
-| ------------------------------------------------------------------ | :-------: | :---------: |
-| SubAgents, Agent Teams, Dynamic Workflows                          |     ✓     |      ✓      |
-| Auto-Memory, Auto-Skills, Hooks                                    |     ✓     |      ✓      |
-| Built-in Skills (/review, /batch, /loop, /bugfix…)                 |     ✓     |      ✓      |
-| MCP, Plan Mode, LSP Integration                                    |     ✓     |      ✓      |
-| Auto Mode, Sandbox, Git Worktrees                                  |     ✓     |      ✓      |
-| Computer Use (desktop automation)                                  |     ✓     |      ✓      |
-| IDE Plugins (VS Code / JetBrains / Zed)                            |     ✓     |      ✓      |
-| SDK                                                                |     ✓     |      ✓      |
-| Headless Mode, Session Management                                  |     ✓     |      ✓      |
-| Open-source — model and framework                                  |     ✓     |      —      |
-| Multi-protocol (OpenAI / Anthropic / Gemini / Qwen + any provider) |     ✓     |      —      |
-| Agent Arena (multi-model head-to-head on same task)                |     ✓     |      —      |
-| Daemon Mode — `qwen serve` (multi-client shared agent)             |     ✓     |      —      |
-| IM Channels (Telegram / DingTalk / WeChat / Feishu)                |     ✓     |      —      |
-
-## Qwen Code Evaluation
-
-### Evaluation Configuration
-
-| Configuration           | Value                                                                                               |
-| ----------------------- | --------------------------------------------------------------------------------------------------- |
-| Dataset                 | `princeton-nlp/SWE-bench_Verified`, 500 cases                                                       |
-| Runs                    | 3 trials per version, 1,500 jobs per version; 7 Qwen Code versions                                  |
-| Model                   | `Qwen 3.7 Max`                                                                                      |
-| Sampling                | `temperature=1`, `top_p=0.95`                                                                       |
-| Thinking / Reasoning    | `interleaved_thinking=true`, `thinking_type=adaptive`, `reasoning_effort=high`                      |
-| Context / Output Limits | `context_1m=true`, `model_context_length=1,000,000`, `max_tokens=64,000`, `model_max_tokens=65,535` |
-| Harness Limits          | `max_iterations=500`, `runtime_timeout_sec=7,200`, `agent_timeout_multiplier=3.0`                   |
-
-### Scores by Qwen Code Version
-
-| Version |  Avg Score | Pass Rate | pass@3 | pass^3 |
-| ------- | ---------: | --------: | -----: | -----: |
-| 0.0.14  | **77.80%** |     84.6% |  84.6% |  69.2% |
-| 0.1.0   | **76.73%** |     84.6% |  84.6% |  68.0% |
-| 0.5.0   | **76.60%** |     83.0% |  83.0% |  68.4% |
-| 0.10.0  | **76.47%** |     84.4% |  84.4% |  67.4% |
-| 0.15.0  | **77.67%** |     84.6% |  84.6% |  68.6% |
-| 0.19.0  | **76.40%** |     85.0% |  85.0% |  65.8% |
-| 0.22.0  | **77.33%** |     84.4% |  84.4% |  68.0% |
-
-### Avg Score Trend
-
-![Qwen Code version Avg Score trend](./.github/assets/qwen-code-avg-score-trend.svg)
-
-## Ecosystem
-
-- [**Qwen Code Desktop**](https://github.com/QwenLM/qwen-code/releases/tag/desktop-latest) — Official desktop app for macOS, Windows, and Linux
-- [**AionUi**](https://github.com/iOfficeAI/AionUi) — A modern GUI for command-line AI tools including Qwen Code
-- [**Gemini CLI Desktop**](https://github.com/Piebald-AI/gemini-cli-desktop) — A cross-platform desktop/web/mobile UI for Qwen Code
-
-- [**🦞 Qwen Code Claw**](https://github.com/openclaw/acpx) — Let other agents (Claude, Codex, etc.) delegate coding tasks to Qwen Code via ACP. Paste this prompt into your agent:
-
-```text
-Use Qwen Code as a coding agent. First, fetch and read this skill reference:
-https://raw.githubusercontent.com/QwenLM/qwen-code/refs/heads/main/.qwen/skills/qwen-code-claw/SKILL.md
-Then follow the instructions inside to install, authenticate, and use Qwen Code via acpx for all coding tasks.
+```bash
+qwen          # 启动交互式终端 UI
+# 在会话中：
+/auth         # 配置 Provider 和 API Key
 ```
 
-- [**Aliyun Model Studio CLI**](https://github.com/modelstudioai/cli) — Official CLI for Aliyun's AI platform (`bailian-cli`). Extends Qwen Code with image/video generation, knowledge retrieval, app orchestration, and model deployment
+## SmartCard 功能
 
-## Contributing
+### 控制台面板
 
-Contributions are welcome! See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
+Web Shell 内置 SmartCard 控制台，提供：
 
-## Acknowledgments
+- **APDU 命令输入** — 支持 hex 格式 APDU 命令，自动换行（`word-break: break-all`）
+- **快捷指令** — `/apdu`、`/reset`、`/help` 等命令
+- **自动滚动** — 新日志自动滚动到底部
+- **SSE 实时日志** — 所有操作日志实时推送显示
 
-This project was originally based on [Google Gemini CLI](https://github.com/google-gemini/gemini-cli) v0.8.2. We gratefully acknowledge the Gemini CLI team's excellent work. Starting from Qwen Code v0.1, we stopped syncing with upstream and began independent development as a multi-protocol, multi-platform agent framework with deep integrations for Qwen models and beyond.
+### Agent 工具
+
+SmartCard 子系统提供以下 Agent 工具：
+
+| 工具            | 功能                                         |
+| --------------- | -------------------------------------------- |
+| `connect`       | 连接读卡器，建立会话                         |
+| `disconnect`    | 断开连接，释放 PC/SC 句柄                    |
+| `send-apdu`     | 发送 APDU 命令到智能卡                       |
+| `reset`         | 复位智能卡                                   |
+| `execute-skill` | 执行 SmartCard Skill（如 SCP02、ICCID 读取） |
+
+### Skill 运行时
+
+SmartCard Skill 支持两种执行环境：
+
+- **Node.js Host** — 通过 `process-node-host.ts` 在独立 Node 进程中执行
+- **Python Host** — 通过 `process-python-host.ts` 在独立 Python 进程中执行
+
+内置 Skill：
+
+- **SCP02** — 智能卡安全通道协议
+- **Read ICCID** — 读取 SIM 卡 ICCID
+- **Hello World** — Skill 开发示例
+
+## 项目结构
+
+```
+packages/
+├── cli/                  # CLI 入口（qwen 命令）
+├── core/                 # 核心引擎（agent + tools + providers）
+│   └── src/smartcard/   # SmartCard 子系统
+│       ├── runtime/     # Skill 运行时
+│       ├── skills/      # 内置 Skill
+│       ├── tools/       # Agent 工具
+│       └── transport/   # Card Transport（Sidecar/Mock）
+├── web-shell/           # Web Shell UI（React + TypeScript）
+├── desktop-shell/       # 桌面应用（Tauri）
+├── channels/            # IM 渠道（Telegram/微信/钉钉/飞书）
+├── acp-bridge/          # Agent Client Protocol 桥接
+├── qwen-live/           # 多客户端共享会话
+└── sdk-*/               # SDK（TypeScript/Python/Java）
+```
+
+## 开发指南
+
+### 单元测试
+
+```bash
+cd packages/core && npx vitest run src/path/to/file.test.ts
+cd packages/cli && npx vitest run src/path/to/file.test.ts
+```
+
+### 集成测试
+
+```bash
+npm run build && npm run bundle
+cd integration-tests && cross-env QWEN_SANDBOX=false npx vitest run cli interactive
+```
+
+### 代码检查
+
+```bash
+npm run lint       # ESLint 检查
+npm run lint:fix   # 自动修复
+npm run format     # Prettier 格式化
+npm run typecheck  # TypeScript 类型检查
+```
+
+## 技术栈
+
+- **运行时**: Node.js >= 22
+- **UI 框架**: React 19.2 + Ink（终端 UI）
+- **Web UI**: React + TypeScript + Vite
+- **桌面应用**: Tauri
+- **测试**: Vitest
+- **构建**: TypeScript 编译 + esbuild 打包
+- **智能卡**: PC/SC API + Rust Sidecar
+
+## 许可证
+
+与 Qwen Code 保持一致。
+
+## 致谢
+
+本项目基于 [Qwen Code](https://github.com/QwenLM/qwen-code) 构建，感谢 Qwen Code 团队提供的优秀 Agent 框架。

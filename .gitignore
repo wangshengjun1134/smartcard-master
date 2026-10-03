@@ -150,3 +150,4 @@ workspace/
 .npm-cache-tmp/
 .workbuddy/
 packages/desktop-shell/src-tauri/smartcard-sidecar/target/
+.qwen/
