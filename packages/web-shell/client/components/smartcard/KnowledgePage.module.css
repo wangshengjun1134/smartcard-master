@@ -245,15 +245,6 @@
   font-size: 15px;
 }
 
-.footerNote {
-  position: absolute;
-  left: 18px;
-  bottom: 14px;
-  font-size: 10px;
-  color: #a0aabd;
-  pointer-events: none;
-}
-
 /* Graph primitives (class names are applied from d3) */
 .node {
   cursor: pointer;

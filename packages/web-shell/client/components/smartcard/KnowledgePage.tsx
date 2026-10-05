@@ -959,9 +959,6 @@ export const KnowledgePage = memo(function KnowledgePage() {
             </div>
           </div>
           <svg className={styles.graph} ref={svgRef} />
-          <div className={styles.footerNote}>
-            视觉策略：中心聚焦 + 领域分组 + 主干关系优先
-          </div>
         </main>
 
         <aside className={styles.right}>
