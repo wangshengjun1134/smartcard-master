@@ -11,11 +11,11 @@ import styles from './KnowledgePage.module.css';
 type Category = 'standard' | 'telecom' | 'security' | 'application' | 'device';
 
 const PALETTE: Record<Category, string> = {
-  standard: '#4a6fa5',
-  telecom: '#8a7ca8',
-  security: '#7ba38c',
-  application: '#c49a6c',
-  device: '#b3594a',
+  standard: '#5a7295',
+  telecom: '#8d84a0',
+  security: '#829c8d',
+  application: '#b5997b',
+  device: '#a1665c',
 };
 
 const CATEGORY_NAMES: Record<Category, string> = {
