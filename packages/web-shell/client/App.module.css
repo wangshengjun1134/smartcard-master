@@ -290,6 +290,11 @@
   overflow-y: auto;
   padding: 20px 24px;
 }
+/* Full-bleed pages manage their own edge-to-edge layout. */
+.fullPageBodyFlush {
+  padding: 0;
+  overflow: hidden;
+}
 
 .mobileDrawer {
   display: contents;

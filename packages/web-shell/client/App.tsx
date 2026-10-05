@@ -15178,7 +15178,9 @@ export function App({
                       {t('sidebar.knowledge')}
                     </div>
                   </div>
-                  <div className={styles.fullPageBody}>
+                  <div
+                    className={`${styles.fullPageBody} ${styles.fullPageBodyFlush}`}
+                  >
                     <KnowledgePage />
                   </div>
                 </div>
