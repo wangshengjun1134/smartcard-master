@@ -11,11 +11,11 @@ import styles from './KnowledgePage.module.css';
 type Category = 'standard' | 'telecom' | 'security' | 'application' | 'device';
 
 const PALETTE: Record<Category, string> = {
-  standard: '#4f7ff7',
-  telecom: '#bd61d2',
-  security: '#78b941',
-  application: '#e7ad35',
-  device: '#ef854b',
+  standard: '#4a6fa5',
+  telecom: '#8a7ca8',
+  security: '#7ba38c',
+  application: '#c49a6c',
+  device: '#b3594a',
 };
 
 const CATEGORY_NAMES: Record<Category, string> = {
@@ -390,6 +390,11 @@ function colorOf(node: GraphNode): string {
   return PALETTE[node.cat];
 }
 
+function borderOf(node: GraphNode): string {
+  const base = d3.color(colorOf(node));
+  return base ? base.darker(0.8).formatHex() : '#ffffff';
+}
+
 function idOf(end: string | GraphNode): string {
   return typeof end === 'string' ? end : end.id;
 }
@@ -400,7 +405,7 @@ function nodeOf(end: string | GraphNode): GraphNode {
 }
 
 function radiusOf(node: GraphNode): number {
-  if (node.core) return 27;
+  if (node.core) return 30;
   if (node.hub) return 17;
   return 8;
 }
@@ -412,7 +417,7 @@ function chargeOf(node: GraphNode): number {
 }
 
 function collideOf(node: GraphNode): number {
-  if (node.core) return 48;
+  if (node.core) return 54;
   if (node.hub) return 28;
   return 22;
 }
@@ -731,17 +736,17 @@ export const KnowledgePage = memo(function KnowledgePage() {
 
     node
       .append('circle')
+      .attr('class', styles.nodeDot)
       .attr('r', (datum) => radiusOf(datum))
-      .attr('fill', (datum) => colorOf(datum));
+      .attr('fill', (datum) => colorOf(datum))
+      .attr('stroke', (datum) => borderOf(datum));
 
     node
       .filter((datum) => Boolean(datum.core))
       .append('circle')
-      .attr('r', 38)
-      .attr('fill', 'none')
-      .attr('stroke', '#dfe7ff')
-      .attr('stroke-width', 8)
-      .attr('opacity', 0.9);
+      .attr('class', styles.coreRing)
+      .attr('r', 46)
+      .attr('fill', 'none');
 
     const labels = node
       .append('text')
