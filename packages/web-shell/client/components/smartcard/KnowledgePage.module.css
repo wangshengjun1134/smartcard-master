@@ -176,22 +176,6 @@
   color: #93a0b3;
 }
 
-.divider {
-  height: 1px;
-  background: var(--kg-line);
-  margin: 16px 0;
-}
-
-.hint {
-  font-size: 11px;
-  line-height: 1.7;
-  color: #8792a4;
-  background: #f8fafc;
-  border: 1px solid #edf0f5;
-  padding: 11px;
-  border-radius: 10px;
-}
-
 /* Canvas */
 .canvas {
   position: relative;

@@ -931,17 +931,6 @@ export const KnowledgePage = memo(function KnowledgePage() {
               </button>
             ))}
           </div>
-          <div className={styles.divider} />
-          <div className={styles.sectionTitle}>图谱结构</div>
-          <div className={styles.hint}>
-            建议把“规范体系”作为唯一主中心，再用 5 个领域 Hub
-            分组。默认只强调主干关系，减少无意义的交叉线。
-          </div>
-          <div className={styles.divider} />
-          <div className={styles.sectionTitle}>交互</div>
-          <div className={styles.hint}>
-            点击节点查看详情；拖动节点可微调布局；滚轮缩放；输入搜索可快速定位节点。
-          </div>
         </aside>
 
         <main className={styles.canvas} ref={containerRef}>
