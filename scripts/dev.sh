@@ -36,7 +36,16 @@ EOF
 need_runtime() {
   if [[ ! -d "$RUNTIME_WEB_SHELL" ]]; then
     warn "runtime 尚未构建，先执行 build:runtime（首次较慢）..."
-    pnpm --dir "$DESKTOP" run build:runtime
+    ( cd "$DESKTOP" && npm run build:runtime )
+  fi
+}
+
+# packages/desktop 被 pnpm-workspace.yaml 排除（'!packages/desktop'），是独立
+# npm 包（自带 package-lock.json）。根 `pnpm install` 不会装它，需在目录内 `npm ci`。
+need_desktop_deps() {
+  if [[ ! -x "$DESKTOP/node_modules/.bin/tauri" ]]; then
+    log "安装桌面依赖（packages/desktop 是独立 npm 包，单独 npm ci）..."
+    ( cd "$DESKTOP" && npm ci --no-audit --progress=false )
   fi
 }
 
@@ -50,12 +59,15 @@ case "${1:-}" in
     ;;
   desktop)
     need_runtime
+    need_desktop_deps
     log "启动桌面 Tauri (tauri dev) ..."
-    exec pnpm --dir "$DESKTOP" run dev
+    cd "$DESKTOP"
+    exec npm run dev
     ;;
   runtime)
     log "构建桌面 runtime ..."
-    exec pnpm --dir "$DESKTOP" run build:runtime
+    cd "$DESKTOP"
+    exec npm run build:runtime
     ;;
   sync)
     need_runtime
