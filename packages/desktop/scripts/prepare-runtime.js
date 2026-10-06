@@ -256,24 +256,29 @@ function stageNodePty(desktopTarget) {
   try {
     // cwd is the empty prefix directory so npm resolves no package.json of its
     // own, and --force is what lets npm fetch a prebuild whose os/cpu do not
-    // match this machine.
-    execFileSync(
-      process.execPath,
-      [
-        npm,
-        'install',
-        '--prefix',
-        installDir,
-        '--package-lock=false',
-        '--no-save',
-        '--ignore-scripts',
-        '--force',
-        '--no-audit',
-        '--no-fund',
-        ...specs,
-      ],
-      { cwd: installDir, stdio: 'inherit' },
-    );
+    // match this machine. These flags are npm-only: when the caller invoked us
+    // through pnpm, npm_execpath points at the pnpm CLI and rejects them, so
+    // shell out to the npm binary (ships with Node) for this throwaway prefix.
+    const installArgs = [
+      'install',
+      '--prefix',
+      installDir,
+      '--package-lock=false',
+      '--no-save',
+      '--ignore-scripts',
+      '--force',
+      '--no-audit',
+      '--no-fund',
+      ...specs,
+    ];
+    if (path.basename(npm).includes('pnpm')) {
+      execFileSync('npm', installArgs, { cwd: installDir, stdio: 'inherit' });
+    } else {
+      execFileSync(process.execPath, [npm, ...installArgs], {
+        cwd: installDir,
+        stdio: 'inherit',
+      });
+    }
     const modulesSrc = path.join(installDir, 'node_modules');
     const addonDir = path.join(
       modulesSrc,
