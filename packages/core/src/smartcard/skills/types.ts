@@ -38,6 +38,11 @@ export interface SkillDefinition {
   category: SkillCategory;
   runtime: SkillRuntimeMeta;
   entry: string;
+  /**
+   * Absolute directory the manifest was loaded from. Set by
+   * {@link SkillPackageLoader}; used to launch out-of-process skills.
+   */
+  packagePath?: string;
 }
 
 /** Lifecycle status of a single skill execution. */

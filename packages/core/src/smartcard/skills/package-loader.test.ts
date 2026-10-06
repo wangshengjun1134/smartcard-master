@@ -6,6 +6,8 @@
 
 import { describe, it, expect } from 'vitest';
 import { join } from 'node:path';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { SkillPackageLoader } from './package-loader.js';
 
 describe('SkillPackageLoader', () => {
@@ -69,6 +71,32 @@ describe('SkillPackageLoader', () => {
 
     it('should return false for directory without skill.json', () => {
       expect(loader.isSkillPackage('/tmp')).toBe(false);
+    });
+  });
+
+  describe('packagePath', () => {
+    it('should record the absolute package directory', () => {
+      const scp02Dir = join(__dirname, 'scp02');
+      const def = loader.loadFromDirectory(scp02Dir);
+
+      expect(def.packagePath).toBe(scp02Dir);
+    });
+
+    it('should follow symlinked package directories when scanning', () => {
+      const tmpBase = mkdtempSync(join(tmpdir(), 'skill-scan-'));
+      const skillsRoot = join(tmpBase, 'skills');
+      mkdirSync(skillsRoot);
+      symlinkSync(
+        join(__dirname, 'read.iccid'),
+        join(skillsRoot, 'read.iccid'),
+      );
+
+      try {
+        const defs = loader.scanDirectory(skillsRoot);
+        expect(defs.map((d) => d.skillId)).toEqual(['read.iccid']);
+      } finally {
+        rmSync(tmpBase, { recursive: true, force: true });
+      }
     });
   });
 });

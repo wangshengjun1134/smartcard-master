@@ -8,6 +8,7 @@ import type { SkillDefinition } from '../skills/types.js';
 import type {
   RuntimeToSkillMessage,
   SkillActionMessage,
+  SkillOutputMessage,
   SkillToRuntimeMessage,
 } from './ipc-protocol.js';
 
@@ -25,6 +26,8 @@ export interface SkillExecutionHandle {
   finished(): Promise<SkillToRuntimeMessage>;
   /** Subscribe to skill_action messages from the skill. */
   onAction(listener: (action: SkillActionMessage) => void): void;
+  /** Subscribe to output events emitted by the skill (progress / log lines). */
+  onOutput(listener: (message: SkillOutputMessage) => void): void;
 }
 
 /**

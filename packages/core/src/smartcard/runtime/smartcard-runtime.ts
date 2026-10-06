@@ -22,8 +22,39 @@ import { SkillPackageLoader } from '../skills/package-loader.js';
 import { ActionExecutor } from './action-executor.js';
 import { SkillExecutor } from './skill-executor.js';
 import { SkillRuntime } from './skill-runtime.js';
+import { ProcessNodeHost } from './process-node-host.js';
+import { ProcessPythonHost } from './process-python-host.js';
 import { OperationLog, type SmartCardOperation } from './operation-log.js';
-import type { CardSession, SkillAction } from './types.js';
+import type { CardSession, SkillAction, SkillEvent } from './types.js';
+
+/**
+ * Convert a transport APDU response into the IPC wire shape
+ * (`{ sw: number, data: number[] }`). The transport returns `Uint8Array`, which
+ * JSON would serialize as an object (`{"0":..}`), so it must be normalized
+ * before it reaches a skill.
+ */
+export function toApduResponseData(
+  value: unknown,
+): { sw: number; data: number[] } | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+  const record = value as { sw?: unknown; data?: unknown };
+  if (typeof record.sw !== 'number') {
+    return undefined;
+  }
+  const raw = record.data;
+  let data: number[] = [];
+  if (raw instanceof Uint8Array) {
+    data = Array.from(raw);
+  } else if (Array.isArray(raw)) {
+    data = raw.map((byte) => Number(byte) & 0xff);
+  }
+  return { sw: record.sw, data };
+}
+
+/** Upper bound for one out-of-process skill execution. */
+const DEFAULT_SKILL_TIMEOUT_MS = 600_000;
 
 /**
  * Process-level facade for smart-card operations. Owns the transport, the
@@ -41,7 +72,11 @@ export class SmartCardRuntime {
   private readerId: string | null = null;
   private atr: string | null = null;
 
-  constructor(transport: CardTransport, registry?: SkillRegistry) {
+  constructor(
+    transport: CardTransport,
+    registry?: SkillRegistry,
+    options: { pythonCommand?: string } = {},
+  ) {
     this.transport = transport;
     this.registry = registry ?? new SkillRegistry();
     this.actionExecutor = new ActionExecutor(
@@ -52,7 +87,10 @@ export class SmartCardRuntime {
     this.skillExecutor = new SkillExecutor(this.actionExecutor, () =>
       this.getCardSession(),
     );
-    this.skillRuntime = new SkillRuntime();
+    this.skillRuntime = new SkillRuntime([
+      new ProcessNodeHost(),
+      new ProcessPythonHost(options.pythonCommand ?? 'python'),
+    ]);
     this.packageLoader = new SkillPackageLoader();
   }
 
@@ -163,6 +201,13 @@ export class SmartCardRuntime {
     packagePath: string,
     input: SkillInput,
   ): Promise<SkillExecutionResult> {
+    if (!packagePath) {
+      return {
+        status: 'FAILED',
+        error: `Skill "${skillId}" has no package path; load it from a directory first.`,
+        events: [],
+      };
+    }
     const def = this.registry.get(skillId);
     if (!def) {
       return {
@@ -183,8 +228,16 @@ export class SmartCardRuntime {
       };
     }
 
+    const events: SkillEvent[] = [];
+
     try {
       const handle = await this.skillRuntime.start(skillDef, packagePath);
+
+      // Collect progress events so callers (agent tool / HTTP route) can show
+      // what the skill did, in order.
+      handle.onOutput((msg) => {
+        events.push({ level: msg.level, message: msg.message, data: msg.data });
+      });
 
       // Subscribe to skill_action messages and execute them through ActionExecutor
       handle.onAction(async (actionMsg) => {
@@ -219,9 +272,9 @@ export class SmartCardRuntime {
             atr: (actionResult as unknown as Record<string, unknown>)['atr'] as
               | string
               | undefined,
-            response: (actionResult as unknown as Record<string, unknown>)[
-              'response'
-            ] as { sw: number; data: number[] } | undefined,
+            response: toApduResponseData(
+              (actionResult as unknown as Record<string, unknown>)['response'],
+            ),
           });
         } catch (err) {
           // Send error result back to skill
@@ -245,27 +298,51 @@ export class SmartCardRuntime {
         cardSession: this.getCardSession(),
       });
 
-      // Wait for completion
-      const result = await handle.finished();
+      // Wait for completion, bounded so a hung skill cannot block the daemon.
+      const timeoutMs = Number(
+        process.env['QWEN_SMARTCARD_SKILL_TIMEOUT_MS'] ??
+          DEFAULT_SKILL_TIMEOUT_MS,
+      );
+      let timedOut = false;
+      const result = await Promise.race([
+        handle.finished(),
+        new Promise<null>((resolve) =>
+          setTimeout(() => {
+            timedOut = true;
+            resolve(null);
+          }, timeoutMs).unref?.(),
+        ),
+      ]);
 
-      if (result.type === 'execution_finished') {
+      if (timedOut) {
+        handle.stop();
+        return {
+          status: 'FAILED',
+          error: `Skill "${skillId}" timed out after ${timeoutMs} ms`,
+          events,
+        };
+      }
+
+      if (result && result.type === 'execution_finished') {
         return {
           status: result.status,
           error: result.error,
-          events: [], // Output events would be collected via IPC in a full implementation
+          events,
+          // Structured result reported by the skill (e.g. ICCID / profileState).
+          ...(result.data !== undefined ? { data: result.data } : {}),
         };
       }
 
       return {
         status: 'FAILED',
         error: 'Unexpected message type from skill',
-        events: [],
+        events,
       };
     } catch (err) {
       return {
         status: 'FAILED',
         error: err instanceof Error ? err.message : String(err),
-        events: [],
+        events,
       };
     }
   }
@@ -282,6 +359,26 @@ export class SmartCardRuntime {
         events: [],
       };
     }
+    if (skill.enabled === false) {
+      return {
+        status: 'FAILED',
+        error: `Skill "${skillId}" is disabled.`,
+        events: [],
+      };
+    }
+
+    // Package skills (node/python/java) always run out-of-process through the
+    // JSON-lines IPC protocol; in-process skills use the SkillExecutor loop.
+    const definition = (skill as unknown as { definition?: SkillDefinition })
+      .definition;
+    if (definition) {
+      return this.executeSkillViaRuntime(
+        skillId,
+        definition.packagePath ?? '',
+        input,
+      );
+    }
+
     return this.skillExecutor.execute(skill, input);
   }
 

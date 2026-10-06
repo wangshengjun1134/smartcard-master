@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { MockCardTransport } from '../transport/mock-transport.js';
 import type { Skill, SkillSession } from '../skills/types.js';
-import { SmartCardRuntime } from './smartcard-runtime.js';
+import { SmartCardRuntime, toApduResponseData } from './smartcard-runtime.js';
 import type { SkillResult } from './types.js';
 
 describe('SmartCardRuntime', () => {
@@ -149,6 +149,68 @@ describe('SmartCardRuntime', () => {
         expect(apdu.request).toBe('00A40400');
         expect(apdu.sw).toBe(0x9000);
       }
+    } finally {
+      await runtime.close();
+    }
+  });
+});
+
+describe('toApduResponseData', () => {
+  it('converts transport Uint8Array data into the IPC number array shape', () => {
+    const normalized = toApduResponseData({
+      sw: 0x9000,
+      data: new Uint8Array([0x6f, 0x1e]),
+    });
+    expect(normalized).toEqual({ sw: 0x9000, data: [0x6f, 0x1e] });
+  });
+
+  it('accepts plain arrays and tolerates missing data', () => {
+    expect(toApduResponseData({ sw: 0x6d00, data: [1, 2] })).toEqual({
+      sw: 0x6d00,
+      data: [1, 2],
+    });
+    expect(toApduResponseData({ sw: 0x9000 })).toEqual({
+      sw: 0x9000,
+      data: [],
+    });
+    expect(toApduResponseData(undefined)).toBeUndefined();
+    expect(toApduResponseData({ data: [1] })).toBeUndefined();
+  });
+});
+
+describe('SmartCardRuntime skill execution', () => {
+  it('rejects execution of a disabled skill', async () => {
+    const runtime = new SmartCardRuntime(new MockCardTransport());
+    try {
+      runtime.registerSkill({
+        skillId: 'test.skill',
+        name: 'Test',
+        description: 'test skill',
+        category: 'custom',
+        enabled: false,
+        createSession: () => ({
+          sessionId: 's',
+          skillId: 'test.skill',
+          status: 'RUNNING',
+        }),
+        start: () => ({ status: 'SUCCESS' }),
+        handleResult: () => ({ status: 'SUCCESS' }),
+      } as unknown as Skill);
+
+      const result = await runtime.executeSkill('test.skill', {});
+      expect(result.status).toBe('FAILED');
+      expect(result.error).toContain('is disabled');
+    } finally {
+      await runtime.close();
+    }
+  });
+
+  it('reports an unknown skill as failed', async () => {
+    const runtime = new SmartCardRuntime(new MockCardTransport());
+    try {
+      const result = await runtime.executeSkill('nope', {});
+      expect(result.status).toBe('FAILED');
+      expect(result.error).toContain('not registered');
     } finally {
       await runtime.close();
     }

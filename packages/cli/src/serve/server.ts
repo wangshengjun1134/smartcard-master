@@ -502,6 +502,23 @@ function describeRegistryPrimaryForConflict(
   );
 }
 
+/**
+ * Directories scanned for smart-card skill packages (directories holding a
+ * skill.json manifest). These are the same directories the agent's skill
+ * management uses, so installing a skill there makes it executable through
+ * `smartcard_execute_skill` without extra configuration.
+ */
+function smartCardSkillDirs(registry: WorkspaceRegistry): string[] {
+  const dirs = [path.join(Storage.getGlobalQwenDir(), 'skills')];
+  const workspaceCwd = registry.primary?.workspaceCwd;
+  if (workspaceCwd) {
+    for (const configDir of ['.qwen', '.agents']) {
+      dirs.push(path.join(workspaceCwd, configDir, 'skills'));
+    }
+  }
+  return dirs;
+}
+
 function getRuntimeEffectiveEnv(
   metadata: WorkspaceRuntimeEnvMetadata | undefined,
 ): Readonly<Record<string, string | undefined>> | undefined {
@@ -2378,7 +2395,13 @@ export function createServeApp(
   // instance and spawns its sidecar lazily on the first reader operation.
   if (process.env['QWEN_CODE_DESKTOP'] === '1') {
     registerSmartCardRoutes(app, {
-      runtime: createSmartCardRuntime(),
+      // Skill packages (skill.json) found in the agent's skill directories are
+      // registered as executable skills, so installing a skill through the
+      // normal skill-management flow is enough to run it through
+      // `smartcard_execute_skill`. `QWEN_SMARTCARD_SKILLS_DIR` adds more.
+      runtime: createSmartCardRuntime(undefined, {
+        skillDirs: smartCardSkillDirs(workspaceRegistry),
+      }),
       mainToken: opts.token,
       scopedToken: deps.smartCardDaemonToken,
       sendBridgeError,

@@ -64,7 +64,9 @@ export class SkillPackageLoader {
     const definitions: SkillDefinition[] = [];
 
     for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
+      // Follow symlinks: skill packages are commonly linked into the skills
+      // directory from a working copy instead of being copied.
+      if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
 
       const skillDir = join(baseDir, entry.name);
       try {
@@ -174,6 +176,7 @@ export class SkillPackageLoader {
         version: runtime['version'] as string | undefined,
       },
       entry,
+      packagePath: resolve(dir),
     };
   }
 

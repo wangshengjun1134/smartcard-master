@@ -25,6 +25,7 @@ describe('SkillRuntime', () => {
         status: 'SUCCESS',
       } as SkillToRuntimeMessage),
       onAction: vi.fn(),
+      onOutput: vi.fn(),
     };
 
     const mockNodeHost: SkillHost = {
@@ -95,6 +96,7 @@ describe('SkillRuntime', () => {
       stop: vi.fn(),
       finished: vi.fn().mockReturnValue(finishedPromise),
       onAction: vi.fn(),
+      onOutput: vi.fn(),
     };
 
     const mockHost: SkillHost = {

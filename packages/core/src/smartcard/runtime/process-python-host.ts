@@ -73,6 +73,9 @@ function createHandle(
 
   let stdoutBuffer = '';
   const actionListeners: Array<(action: SkillActionMessage) => void> = [];
+  const outputListeners: Array<
+    (message: Extract<SkillToRuntimeMessage, { type: 'output' }>) => void
+  > = [];
 
   child.stdout?.on('data', (chunk: Buffer) => {
     stdoutBuffer += chunk.toString();
@@ -89,6 +92,10 @@ function createHandle(
           // Notify action listeners
           for (const listener of actionListeners) {
             listener(msg as SkillActionMessage);
+          }
+        } else if (msg.type === 'output') {
+          for (const listener of outputListeners) {
+            listener(msg);
           }
         }
       } catch {
@@ -117,7 +124,11 @@ function createHandle(
     },
 
     async finished(): Promise<SkillToRuntimeMessage> {
-      await Promise.race([
+      // Race the explicit execution_finished message against process exit so a
+      // skill that dies without reporting (crash, non-zero exit, missing
+      // runtime) resolves instead of hanging the caller forever. When the
+      // skill did report, finishedPromise settles first and wins the race.
+      return await Promise.race([
         finishedPromise,
         once(child, 'exit').then(
           ([code]) =>
@@ -132,11 +143,18 @@ function createHandle(
             }) satisfies SkillToRuntimeMessage,
         ),
       ]);
-      return finishedPromise;
     },
 
     onAction(listener: (action: SkillActionMessage) => void): void {
       actionListeners.push(listener);
+    },
+
+    onOutput(
+      listener: (
+        message: Extract<SkillToRuntimeMessage, { type: 'output' }>,
+      ) => void,
+    ): void {
+      outputListeners.push(listener);
     },
   };
 }
