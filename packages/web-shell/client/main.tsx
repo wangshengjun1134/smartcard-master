@@ -353,7 +353,7 @@ export function StandaloneApp({ daemonToken }: { daemonToken?: string }) {
                   // (e.g. Agents) cannot silently drop out of the standalone
                   // shell.
                   primaryNav: {
-                    items: DEFAULT_PRIMARY_NAV_ITEMS,
+                    items: [...DEFAULT_PRIMARY_NAV_ITEMS, 'knowledge'],
                   },
                   footer: {
                     items: isDesktopShell()

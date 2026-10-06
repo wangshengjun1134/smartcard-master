@@ -332,7 +332,6 @@ export const DEFAULT_PRIMARY_NAV_ITEMS: readonly WebShellSidebarPrimaryNavItem[]
     'scheduledTasks',
     'workflows',
     'goals',
-    'knowledge',
     'managed',
   ];
 
