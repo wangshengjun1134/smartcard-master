@@ -9432,10 +9432,8 @@ export function App({
     }
     if (!projectFeaturesAvailable) setShowFallbacksDialog(false);
     if (
-      mainView === 'scheduledTasks' ||
-      mainView === 'goals' ||
-      mainView === 'knowledge' ||
       mainView === 'cockpit' ||
+      mainView === 'knowledge' ||
       (!projectFeaturesAvailable &&
         (mainView === 'scheduledTasks' ||
           mainView === 'goals' ||

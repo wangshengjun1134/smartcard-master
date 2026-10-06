@@ -232,7 +232,7 @@ describe('React performance measure guard', () => {
 });
 
 describe('brand pre-paint script', () => {
-  const BUILT_IN_TITLE = 'Qwen Code Web chat';
+  const BUILT_IN_TITLE = 'SmartCard Master Web chat';
   const BUILT_IN_ICON = 'data:image/svg+xml,BUILT-IN';
 
   function runBrandScript(stored: string | null): {
@@ -302,7 +302,9 @@ describe('built-in brand document contract', () => {
   // pre-paint script and main.tsx fall back to, so they are pinned here rather
   // than left to a visual diff.
   it('ships the built-in document title', () => {
-    expect(readIndexHtml()).toContain('<title>Qwen Code Web chat</title>');
+    expect(readIndexHtml()).toContain(
+      '<title>SmartCard Master Web chat</title>',
+    );
   });
 
   it('ships the built-in favicon as an inline data URI', () => {

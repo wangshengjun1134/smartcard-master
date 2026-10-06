@@ -403,7 +403,7 @@ describe('StandaloneApp brand', () => {
 
     resolveBrand({});
 
-    expect(document.title).toBe('Qwen Code Web chat');
+    expect(document.title).toBe('SmartCard Master Web chat');
     expect(readCachedBrand()).toBeNull();
   });
 

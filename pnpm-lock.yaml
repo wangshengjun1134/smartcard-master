@@ -1489,6 +1489,9 @@ importers:
       '@tanstack/react-virtual':
         specifier: ^3.13.26
         version: 3.14.2(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@types/d3':
+        specifier: ^7.4.3
+        version: 7.4.3
       '@xterm/addon-fit':
         specifier: ^0.11.0
         version: 0.11.0
@@ -1504,6 +1507,9 @@ importers:
       codemirror:
         specifier: ^6.0.0
         version: 6.0.2
+      d3:
+        specifier: ^7.9.0
+        version: 7.9.0
       echarts:
         specifier: ^6.0.0
         version: 6.1.0

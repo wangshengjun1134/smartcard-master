@@ -85,6 +85,13 @@ export const AGENT_TOOL_CLASSIFICATION = {
   [ToolNames.UPDATE_GOAL]: 'deny',
   [ToolNames.PROPOSE_GOAL]: 'deny',
   [ToolNames.DISPLAY_IMAGE]: 'allow',
+  // Smart-card tools drive the local reader over PC/SC, so the read-only Agent
+  // host denies them for the same reason as exec.
+  [ToolNames.SMARTCARD_CONNECT]: 'deny',
+  [ToolNames.SMARTCARD_DISCONNECT]: 'deny',
+  [ToolNames.SMARTCARD_SEND_APDU]: 'deny',
+  [ToolNames.SMARTCARD_RESET]: 'deny',
+  [ToolNames.SMARTCARD_EXECUTE_SKILL]: 'deny',
   // The omni media family is absent from `SAFE_TOOL_ALLOWLIST`, which is where
   // the read-only file and search tools are declared, so an Agent keeps
   // reaching media through `read_file` / `zoom_image` / `display_image` and
