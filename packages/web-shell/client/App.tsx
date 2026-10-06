@@ -22899,10 +22899,14 @@ export function App({
                 </div>,
                 artifactPanelSlotEl,
               )}
-            {/* SmartCard Console - fixed panel on the right side. Only the
-                desktop shell can use it: the daemon registers the smart-card
-                routes behind QWEN_CODE_DESKTOP. */}
-            {isDesktopShell() && (
+            {/* SmartCard Console - fixed panel on the right side. The daemon
+                only registers the smart-card routes under QWEN_CODE_DESKTOP,
+                so the console belongs to the desktop shell; it is also shown
+                under the Vite dev server for UI work, but not in tests (where
+                its resize handle / textarea would pollute document-wide
+                queries) or in production builds. */}
+            {(isDesktopShell() ||
+              (import.meta.env.DEV && import.meta.env.MODE !== 'test')) && (
               <SmartCardConsole
                 className={styles.smartCardPanel}
                 width={smartCardPanelWidth}
