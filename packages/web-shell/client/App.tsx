@@ -22899,13 +22899,17 @@ export function App({
                 </div>,
                 artifactPanelSlotEl,
               )}
-            {/* SmartCard Console - fixed panel on the right side */}
-            <SmartCardConsole
-              className={styles.smartCardPanel}
-              width={smartCardPanelWidth}
-              onResizeStart={handleSmartCardPanelResizeStart}
-              onWidthChange={setSmartCardPanelWidth}
-            />
+            {/* SmartCard Console - fixed panel on the right side. Only the
+                desktop shell can use it: the daemon registers the smart-card
+                routes behind QWEN_CODE_DESKTOP. */}
+            {isDesktopShell() && (
+              <SmartCardConsole
+                className={styles.smartCardPanel}
+                width={smartCardPanelWidth}
+                onResizeStart={handleSmartCardPanelResizeStart}
+                onWidthChange={setSmartCardPanelWidth}
+              />
+            )}
           </div>
         </div>
         </CompactModeContext.Provider>

@@ -8547,13 +8547,15 @@ describe('artifact panel fullscreen', () => {
       await Promise.resolve();
     });
     await flush();
-    // The opening clamp shrinks the default 500px panel to fit the 400px
-    // chat pane — the width a user would then carry into fullscreen.
+    // The fork's default review-panel width (320px) is already narrower than
+    // the 400px chat pane, so the opening clamp leaves it at 320 — the width a
+    // user would then carry into fullscreen. (Upstream's default of 500 clamps
+    // to 400 here.)
     expect(
       container
         .querySelector('[role="separator"]')
         ?.getAttribute('aria-valuenow'),
-    ).toBe('400');
+    ).toBe('320');
 
     // The hidden pane collapses to 0x0 once fullscreen covers the chat. Seed
     // the 0 measurement BEFORE entering fullscreen: entering runs the clamp
@@ -8578,7 +8580,7 @@ describe('artifact panel fullscreen', () => {
     expect(fullscreenAside?.style.width).toBe('');
     expect(fullscreenAside?.style.flexBasis).toBe('');
 
-    // The pane lays back out at viewport(900) - panel(400) = 500 on exit; the
+    // The pane lays back out at viewport(900) - panel(320) = 580 on exit; the
     // persisted width must survive the 0 measurement round-trip.
     chatPaneWidth = 500;
     await act(async () => {
@@ -8594,7 +8596,7 @@ describe('artifact panel fullscreen', () => {
       container
         .querySelector('[role="separator"]')
         ?.getAttribute('aria-valuenow'),
-    ).toBe('400');
+    ).toBe('320');
     globalThis.ResizeObserver = originalResizeObserver;
   });
 

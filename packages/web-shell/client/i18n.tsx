@@ -4751,6 +4751,11 @@ const ZH: Messages = {
   'toolName.omni_transcribe_audio': '转写音频',
   'toolName.omni_recall_media_memory': '召回媒体记忆',
   'toolName.display_image': '显示图片',
+  'toolName.smartcard_connect': '智能卡连接',
+  'toolName.smartcard_disconnect': '智能卡断开',
+  'toolName.smartcard_send_apdu': '发送 APDU',
+  'toolName.smartcard_reset': '智能卡复位',
+  'toolName.smartcard_execute_skill': '执行智能卡技能',
   // web-shell-only wire aliases (see TOOL_DISPLAY_NAMES in toolFormatting.ts)
   'toolName.bash': '运行命令',
   'toolName.shell': 'Shell 命令',
