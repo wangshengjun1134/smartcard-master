@@ -7,6 +7,7 @@
 #   ./scripts/dev.sh desktop            启动桌面 Tauri（首次会自动先构建 runtime）
 #   ./scripts/dev.sh runtime            只构建桌面 runtime（CLI + web-shell 打包进 runtime/）
 #   ./scripts/dev.sh sync               只重建 web-shell 并拷进 runtime，快速带到桌面窗口
+#   ./scripts/dev.sh stopdaemon         终止残留的 daemon 进程（cli-entry.js serve）
 #   ./scripts/dev.sh help               显示本帮助
 #
 set -euo pipefail
@@ -29,6 +30,8 @@ SmartCard Master 开发辅助
   ./scripts/dev.sh desktop            启动桌面 Tauri（runtime 不存在时会先 build:runtime）
   ./scripts/dev.sh runtime            只构建桌面 runtime
   ./scripts/dev.sh sync               只重建 web-shell 并拷进 runtime；改完前端后重启桌面 App
+  ./scripts/dev.sh stopdaemon         终止残留的 daemon 进程（cli-entry.js serve）
+                                      （桌面 App 关窗口不会结束 daemon，残留会跑旧代码）
   ./scripts/dev.sh help               显示帮助
 EOF
 }
@@ -47,6 +50,35 @@ need_desktop_deps() {
     log "安装桌面依赖（packages/desktop 是独立 npm 包，单独 npm ci）..."
     ( cd "$DESKTOP" && npm ci --no-audit --progress=false )
   fi
+}
+
+# 终止残留的 daemon 进程。桌面 App 关窗口不会结束它，残留会继续跑旧 runtime
+# （表现为改动不生效、或旧 daemon 占用端口导致 token 不匹配 401）。
+stop_daemon() {
+  local pattern="node .*runtime/qwen-code/lib/cli-entry.js serve"
+  # 排除本脚本及其父 shell：命令行里若出现该 pattern 字符串（如把本命令写进
+  # 一条复合命令），pgrep -f 会把调用者自己也匹配进来并误杀。
+  local pids
+  pids="$(
+    pgrep -f "$pattern" 2>/dev/null |
+      grep -vx -e "$$" -e "${PPID:-0}" || true
+  )"
+  if [[ -z "$pids" ]]; then
+    log "没有正在运行的 daemon"
+    return 0
+  fi
+  log "终止 daemon 进程：$(echo "$pids" | tr '\n' ' ')"
+  # shellcheck disable=SC2086
+  kill $pids 2>/dev/null || true
+  for _ in $(seq 1 20); do
+    if ! pgrep -f "$pattern" >/dev/null 2>&1; then
+      log "daemon 已停止"
+      return 0
+    fi
+    sleep 0.5
+  done
+  warn "daemon 未在 10s 内退出，强制结束"
+  pkill -9 -f "$pattern" 2>/dev/null || true
 }
 
 case "${1:-}" in
@@ -77,6 +109,9 @@ case "${1:-}" in
     rm -rf "$RUNTIME_WEB_SHELL"
     cp -r "$WEBSHELL/dist" "$RUNTIME_WEB_SHELL"
     log "完成。请重启桌面 App（或窗口里的 Restart）使改动生效"
+    ;;
+  stopdaemon)
+    stop_daemon
     ;;
   "" | -h | --help | help)
     usage
