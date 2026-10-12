@@ -15,6 +15,7 @@ import {
   KnowledgeRetrievalError,
   searchKnowledge,
 } from '../retrieval-client.js';
+import { buildCitationArtifacts } from '../citations.js';
 import type { KnowledgeSearchResponse } from '../types.js';
 
 export interface KnowledgeRetrievalParams {
@@ -119,7 +120,11 @@ class KnowledgeRetrievalInvocation extends BaseToolInvocation<
         },
       });
       const content = formatResponse(response);
-      return { llmContent: content, returnDisplay: content };
+      return {
+        llmContent: content,
+        returnDisplay: content,
+        artifacts: buildCitationArtifacts(response, this.retrievalUrl),
+      };
     } catch (error) {
       const message =
         error instanceof KnowledgeRetrievalError

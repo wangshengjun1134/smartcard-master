@@ -116,6 +116,39 @@ describe('KnowledgeRetrievalTool', () => {
     expect(result.llmContent).toContain('Profile isolation requires...');
   });
 
+  it('returns citation artifacts for the side panel', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          results: [
+            {
+              chunk_id: 'c1',
+              document_id: 'doc-1',
+              citation: {
+                document_name: 'SGP.27-v1.0.pdf',
+                series_id: 'SGP.27',
+                page_nos: [180],
+              },
+            },
+          ],
+        }),
+      ),
+    );
+    const tool = new KnowledgeRetrievalTool(URL);
+
+    const result = (await invocation(tool, { query: 'q' }).execute()) as {
+      artifacts?: Array<{ title: string; url?: string; kind?: string }>;
+    };
+
+    expect(result.artifacts).toHaveLength(1);
+    expect(result.artifacts?.[0]).toMatchObject({
+      kind: 'pdf',
+      title: 'SGP.27-v1.0.pdf · p.180',
+      url: `${URL}/api/docs/doc-1/pages?start_page=180&end_page=180`,
+    });
+  });
+
   it('reports an empty result set without failing', async () => {
     vi.stubGlobal(
       'fetch',

@@ -68,6 +68,12 @@ export interface KnowledgeResultCitation {
   document_code?: string;
   series_id?: string;
   revision?: string;
+  /**
+   * Document location as reported by the service. May be a local absolute
+   * path or an http(s) URL; the UI opens documents through the service's
+   * `/api/docs/{document_id}/pages` endpoint rather than this path.
+   */
+  file_path?: string;
   page_nos?: number[];
   linked_item_ids?: string[];
 }
