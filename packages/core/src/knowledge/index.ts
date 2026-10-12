@@ -6,8 +6,9 @@
 
 export * from './types.js';
 export {
+  DEFAULT_KNOWLEDGE_SEARCH_TIMEOUT_MS,
   KnowledgeRetrievalError,
-  KNOWLEDGE_SEARCH_TIMEOUT_MS,
+  resolveKnowledgeTimeoutMs,
   searchKnowledge,
 } from './retrieval-client.js';
 export * from './tools/index.js';

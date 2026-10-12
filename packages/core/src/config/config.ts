@@ -12792,11 +12792,16 @@ export class Config {
     // an unconfigured deployment never advertises a tool it cannot serve.
     const knowledgeRetrievalUrl = this.knowledgeRetrievalSettings?.retrievalUrl;
     if (knowledgeRetrievalUrl) {
+      const knowledgeRetrievalTimeoutSeconds =
+        this.knowledgeRetrievalSettings?.timeoutSeconds;
       await registerLazy(ToolNames.KNOWLEDGE_RETRIEVAL, async () => {
         const { KnowledgeRetrievalTool } = await import(
           '../knowledge/tools/retrieval.js'
         );
-        return new KnowledgeRetrievalTool(knowledgeRetrievalUrl);
+        return new KnowledgeRetrievalTool(
+          knowledgeRetrievalUrl,
+          knowledgeRetrievalTimeoutSeconds,
+        );
       });
     }
     if (this.isArtifactEnabled()) {

@@ -6,8 +6,9 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  KNOWLEDGE_SEARCH_TIMEOUT_MS,
+  DEFAULT_KNOWLEDGE_SEARCH_TIMEOUT_MS,
   KnowledgeRetrievalError,
+  resolveKnowledgeTimeoutMs,
   searchKnowledge,
 } from './retrieval-client.js';
 
@@ -139,6 +140,32 @@ describe('searchKnowledge', () => {
   });
 
   it('exports a positive default timeout', () => {
-    expect(KNOWLEDGE_SEARCH_TIMEOUT_MS).toBeGreaterThan(0);
+    expect(DEFAULT_KNOWLEDGE_SEARCH_TIMEOUT_MS).toBeGreaterThan(0);
+  });
+});
+
+describe('resolveKnowledgeTimeoutMs', () => {
+  it('converts configured seconds to milliseconds', () => {
+    expect(resolveKnowledgeTimeoutMs(30)).toBe(30_000);
+    expect(resolveKnowledgeTimeoutMs(1)).toBe(1_000);
+    expect(resolveKnowledgeTimeoutMs(3600)).toBe(3_600_000);
+  });
+
+  it('falls back to the default when unset', () => {
+    expect(resolveKnowledgeTimeoutMs(undefined)).toBe(
+      DEFAULT_KNOWLEDGE_SEARCH_TIMEOUT_MS,
+    );
+  });
+
+  it('falls back to the default for out-of-range values', () => {
+    expect(resolveKnowledgeTimeoutMs(0)).toBe(
+      DEFAULT_KNOWLEDGE_SEARCH_TIMEOUT_MS,
+    );
+    expect(resolveKnowledgeTimeoutMs(-5)).toBe(
+      DEFAULT_KNOWLEDGE_SEARCH_TIMEOUT_MS,
+    );
+    expect(resolveKnowledgeTimeoutMs(99_999)).toBe(
+      DEFAULT_KNOWLEDGE_SEARCH_TIMEOUT_MS,
+    );
   });
 });

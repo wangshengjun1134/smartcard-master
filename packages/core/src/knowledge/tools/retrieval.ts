@@ -13,6 +13,7 @@ import {
 import { ToolNames, ToolDisplayNames } from '../../tools/tool-names.js';
 import {
   KnowledgeRetrievalError,
+  resolveKnowledgeTimeoutMs,
   searchKnowledge,
 } from '../retrieval-client.js';
 import { buildCitationArtifacts } from '../citations.js';
@@ -94,6 +95,7 @@ class KnowledgeRetrievalInvocation extends BaseToolInvocation<
   constructor(
     params: KnowledgeRetrievalParams,
     private readonly retrievalUrl: string,
+    private readonly timeoutSeconds?: number,
   ) {
     super(params);
   }
@@ -109,16 +111,22 @@ class KnowledgeRetrievalInvocation extends BaseToolInvocation<
     const { query, series_id, top_k, retrieval_type } = this.params;
     const resolvedTopK = top_k ?? DEFAULT_TOP_K;
     try {
-      const response = await searchKnowledge(this.retrievalUrl, {
-        query,
-        ...(series_id && series_id.length > 0 ? { scope: { series_id } } : {}),
-        retrieval: {
-          ...(retrieval_type ? { retrieval_type } : {}),
-          top_k: resolvedTopK,
-          // rerank_top_k must not exceed top_k or the service returns 400.
-          rerank_top_k: Math.min(DEFAULT_RERANK_TOP_K, resolvedTopK),
+      const response = await searchKnowledge(
+        this.retrievalUrl,
+        {
+          query,
+          ...(series_id && series_id.length > 0
+            ? { scope: { series_id } }
+            : {}),
+          retrieval: {
+            ...(retrieval_type ? { retrieval_type } : {}),
+            top_k: resolvedTopK,
+            // rerank_top_k must not exceed top_k or the service returns 400.
+            rerank_top_k: Math.min(DEFAULT_RERANK_TOP_K, resolvedTopK),
+          },
         },
-      });
+        { timeoutMs: resolveKnowledgeTimeoutMs(this.timeoutSeconds) },
+      );
       const content = formatResponse(response);
       return {
         llmContent: content,
@@ -147,7 +155,11 @@ export class KnowledgeRetrievalTool extends BaseDeclarativeTool<
 > {
   static readonly Name = ToolNames.KNOWLEDGE_RETRIEVAL;
 
-  constructor(private readonly retrievalUrl: string) {
+  constructor(
+    private readonly retrievalUrl: string,
+    /** Configured timeout in seconds; undefined uses the built-in default. */
+    private readonly timeoutSeconds?: number,
+  ) {
     super(
       KnowledgeRetrievalTool.Name,
       ToolDisplayNames.KNOWLEDGE_RETRIEVAL,
@@ -192,6 +204,10 @@ export class KnowledgeRetrievalTool extends BaseDeclarativeTool<
   protected createInvocation(
     params: KnowledgeRetrievalParams,
   ): ToolInvocation<KnowledgeRetrievalParams, ToolResult> {
-    return new KnowledgeRetrievalInvocation(params, this.retrievalUrl);
+    return new KnowledgeRetrievalInvocation(
+      params,
+      this.retrievalUrl,
+      this.timeoutSeconds,
+    );
   }
 }

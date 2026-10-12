@@ -1129,14 +1129,20 @@ function resolveWebSearchSettings(
 
 /**
  * Resolve the built-in knowledge retrieval settings from
- * `knowledge.retrievalUrl`. Returns undefined when the URL is absent or
- * blank, which keeps the knowledge_retrieval tool unregistered.
+ * `knowledge.retrievalUrl` and `knowledge.retrievalTimeoutSeconds`. Returns
+ * undefined when the URL is absent or blank, which keeps the
+ * knowledge_retrieval tool unregistered.
  */
 function resolveKnowledgeSettings(
   settings: Settings,
 ): KnowledgeRetrievalSettings | undefined {
   const retrievalUrl = settings.knowledge?.retrievalUrl?.trim();
-  return retrievalUrl ? { retrievalUrl } : undefined;
+  if (!retrievalUrl) return undefined;
+  const timeoutSeconds = settings.knowledge?.retrievalTimeoutSeconds;
+  return {
+    retrievalUrl,
+    ...(typeof timeoutSeconds === 'number' ? { timeoutSeconds } : {}),
+  };
 }
 
 /**

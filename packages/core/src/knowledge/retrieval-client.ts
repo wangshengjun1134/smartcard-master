@@ -9,8 +9,27 @@ import type {
   KnowledgeSearchResponse,
 } from './types.js';
 
-/** Per-request budget for one knowledge retrieval, matching the WebSearch default. */
-export const KNOWLEDGE_SEARCH_TIMEOUT_MS = 30_000;
+/** Default per-request budget used when no timeout is configured. */
+export const DEFAULT_KNOWLEDGE_SEARCH_TIMEOUT_MS = 60_000;
+/** Accepted `knowledge.retrievalTimeoutSeconds` range; outside it falls back. */
+export const MIN_KNOWLEDGE_SEARCH_TIMEOUT_SECONDS = 1;
+export const MAX_KNOWLEDGE_SEARCH_TIMEOUT_SECONDS = 3600;
+
+/**
+ * Converts the configured timeout (seconds) to milliseconds, falling back to
+ * the default for missing or out-of-range values.
+ */
+export function resolveKnowledgeTimeoutMs(timeoutSeconds?: number): number {
+  if (
+    typeof timeoutSeconds === 'number' &&
+    Number.isFinite(timeoutSeconds) &&
+    timeoutSeconds >= MIN_KNOWLEDGE_SEARCH_TIMEOUT_SECONDS &&
+    timeoutSeconds <= MAX_KNOWLEDGE_SEARCH_TIMEOUT_SECONDS
+  ) {
+    return Math.round(timeoutSeconds * 1000);
+  }
+  return DEFAULT_KNOWLEDGE_SEARCH_TIMEOUT_MS;
+}
 
 const DEFAULT_RETRIEVAL_URL = 'http://127.0.0.1:8000';
 
@@ -95,10 +114,16 @@ function normalizeItem(
  * Every failure path throws {@link KnowledgeRetrievalError} with a message the
  * tool surfaces to the model.
  */
+export interface KnowledgeSearchOptions {
+  signal?: AbortSignal;
+  /** Per-request budget in milliseconds; defaults to the built-in default. */
+  timeoutMs?: number;
+}
+
 export async function searchKnowledge(
   retrievalUrl: string,
   params: KnowledgeSearchRequest,
-  signal?: AbortSignal,
+  options?: KnowledgeSearchOptions,
 ): Promise<KnowledgeSearchResponse> {
   let url: string;
   try {
@@ -118,7 +143,10 @@ export async function searchKnowledge(
         Accept: 'application/json',
       },
       body: JSON.stringify(params),
-      signal: combineSignals(signal, KNOWLEDGE_SEARCH_TIMEOUT_MS),
+      signal: combineSignals(
+        options?.signal,
+        options?.timeoutMs ?? DEFAULT_KNOWLEDGE_SEARCH_TIMEOUT_MS,
+      ),
     });
   } catch (error) {
     throw new KnowledgeRetrievalError(

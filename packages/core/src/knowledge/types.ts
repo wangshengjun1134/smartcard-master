@@ -12,6 +12,12 @@
 export interface KnowledgeRetrievalSettings {
   /** Base URL of the knowledge retrieval service. */
   retrievalUrl: string;
+  /**
+   * Time budget for one retrieval call, in seconds. Undefined uses the
+   * built-in default; the CLI resolves and range-checks this from
+   * `knowledge.retrievalTimeoutSeconds`.
+   */
+  timeoutSeconds?: number;
 }
 
 export type KnowledgeVersionPolicy = 'latest' | 'exact' | 'selected' | 'all';
