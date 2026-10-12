@@ -1440,6 +1440,9 @@ const EN: Messages = {
   'editor.shellPlaceholder': 'Enter terminal command',
   'editor.send': 'Send message',
   'editor.referenceKnowledge': 'Reference Knowledge',
+  'knowledge.enabled': 'Knowledge retrieval enabled',
+  'knowledge.disabled': 'Knowledge retrieval disabled',
+  'knowledge.toggleFailed': 'Failed to update the knowledge retrieval tool.',
   'editor.imagesSkipped': (v) =>
     `${v?.count ?? 0} file(s) were unavailable and skipped.`,
   'editor.imagesReadFailed': (v) =>
@@ -5674,6 +5677,9 @@ const ZH: Messages = {
   'editor.shellPlaceholder': '请输入终端命令',
   'editor.send': '发送消息',
   'editor.referenceKnowledge': '引用知识',
+  'knowledge.enabled': '已启用知识库检索',
+  'knowledge.disabled': '已关闭知识库检索',
+  'knowledge.toggleFailed': '更新知识库检索工具失败。',
   'editor.imagesSkipped': (v) => `已跳过 ${v?.count ?? 0} 个不可读取的文件。`,
   'editor.imagesReadFailed': (v) => `${v?.count ?? 0} 个文件读取失败。`,
   'editor.imagesTooLarge': (v) => `${v?.count ?? 0} 个文件超过附件大小限制。`,

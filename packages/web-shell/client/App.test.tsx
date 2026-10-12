@@ -220,6 +220,8 @@ type ChatEditorTestProps = {
   gitStatus?: DaemonWorkspaceGitStatus;
   onOpenGitDiff?: () => void;
   visibleToolbarActions?: string[];
+  knowledgeActive?: boolean;
+  onToggleKnowledge?: () => void;
   tokenCount?: number;
   contextWindow?: number;
   onShowContextUsage?: () => void;
@@ -583,6 +585,8 @@ const {
       loadMcpStatus: vi.fn().mockResolvedValue({ servers: [] }),
       loadMcpTools: vi.fn().mockResolvedValue([]),
       loadMcpResources: vi.fn().mockResolvedValue([]),
+      loadToolsStatus: vi.fn().mockResolvedValue({ tools: [] }),
+      setWorkspaceToolEnabled: vi.fn().mockResolvedValue(undefined),
       addWorkspace: vi.fn(),
       addScratchWorkspace: vi.fn(),
       suggestWorkspacePaths: vi.fn(),
@@ -44797,5 +44801,72 @@ describe('App sidebar toggle shortcut (#5074 rail follow-ups)', () => {
     } finally {
       globalThis.ResizeObserver = originalResizeObserver;
     }
+  });
+});
+
+describe('knowledge retrieval reference toggle', () => {
+  beforeEach(() => {
+    mockWorkspaceActions.loadToolsStatus.mockResolvedValue({ tools: [] });
+    mockWorkspaceActions.setWorkspaceToolEnabled.mockReset();
+    mockWorkspaceActions.setWorkspaceToolEnabled.mockResolvedValue(undefined);
+  });
+
+  it('exposes the knowledge toggle on the composer', async () => {
+    renderApp({});
+    await flush();
+
+    expect(testState.latestChatEditorProps?.visibleToolbarActions).toContain(
+      'referenceKnowledge',
+    );
+    expect(testState.latestChatEditorProps?.onToggleKnowledge).toBeTypeOf(
+      'function',
+    );
+  });
+
+  it('enables the tool and confirms via toast when toggled on', async () => {
+    const onToast = vi.fn();
+    renderApp({ onToast });
+    await flush();
+
+    await act(async () => {
+      testState.latestChatEditorProps?.onToggleKnowledge?.();
+      await Promise.resolve();
+    });
+    await flush();
+
+    expect(mockWorkspaceActions.setWorkspaceToolEnabled).toHaveBeenCalledWith(
+      'knowledge_retrieval',
+      true,
+    );
+    expect(onToast).toHaveBeenCalledWith(
+      'info',
+      expect.stringContaining('Knowledge retrieval enabled'),
+    );
+  });
+
+  it('rolls the toggle back and surfaces an error when the update fails', async () => {
+    const onToast = vi.fn();
+    mockWorkspaceActions.setWorkspaceToolEnabled.mockRejectedValueOnce(
+      new Error('boom'),
+    );
+    renderApp({ onToast });
+    await flush();
+
+    await act(async () => {
+      testState.latestChatEditorProps?.onToggleKnowledge?.();
+      await Promise.resolve();
+    });
+    await flush();
+
+    expect(mockWorkspaceActions.setWorkspaceToolEnabled).toHaveBeenCalledWith(
+      'knowledge_retrieval',
+      true,
+    );
+    // A failed update must not leave the icon claiming the tool is on.
+    expect(testState.latestChatEditorProps?.knowledgeActive).toBe(false);
+    expect(onToast).toHaveBeenCalledWith(
+      'error',
+      expect.stringContaining('Failed to update the knowledge retrieval tool'),
+    );
   });
 });

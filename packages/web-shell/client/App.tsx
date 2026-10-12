@@ -599,6 +599,10 @@ const DEFAULT_EMPTY_COMPOSER_TOOLBAR_ACTIONS = [
   'gitBranch',
 ] as const satisfies readonly ComposerToolbarAction[];
 const MAX_ARTIFACT_PANEL_SESSION_STATES = 20;
+// Registered core tool name for knowledge retrieval; the composer's
+// "reference knowledge" toggle persists its enabled state through the
+// workspace tool-toggle route.
+const KNOWLEDGE_RETRIEVAL_TOOL_NAME = 'knowledge_retrieval';
 // Malformed pagination stops at 250k events; add a targeted daemon lookup if
 // real sessions approach this ceiling.
 const MAX_ARTIFACT_PANEL_TRANSCRIPT_PAGES = 1_000;
@@ -8973,6 +8977,28 @@ export function App({
   // Knowledge reference state for the composer
   const [knowledgeActive, setKnowledgeActive] = useState(false);
   const [knowledgeEnabled, _setKnowledgeEnabled] = useState(true);
+  const knowledgeTogglePendingRef = useRef(false);
+  const knowledgeStateSyncedRef = useRef(false);
+  // Reflect the tool's persisted enabled state on mount so the composer icon
+  // matches whether the agent can actually reach knowledge retrieval.
+  useEffect(() => {
+    if (knowledgeStateSyncedRef.current) return;
+    knowledgeStateSyncedRef.current = true;
+    let cancelled = false;
+    void workspaceActions
+      .loadToolsStatus()
+      .then((status) => {
+        if (cancelled) return;
+        const tool = status.tools.find(
+          (item) => item.name === KNOWLEDGE_RETRIEVAL_TOOL_NAME,
+        );
+        if (tool) setKnowledgeActive(tool.enabled);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceActions]);
   const showChat = useCallback(() => {
     if (cockpitViewRequested()) updateCockpitLocation(false);
     setMainView('chat');
@@ -9530,9 +9556,30 @@ export function App({
     showChat();
     setMainView('knowledge');
   }, [showChat]);
-  const toggleKnowledge = useCallback(() => {
-    setKnowledgeActive((prev) => !prev);
-  }, []);
+  // Toggle the knowledge retrieval tool for this workspace. The daemon applies
+  // the change on the next tool registration rather than the current turn; the
+  // toast only confirms the persisted state.
+  const toggleKnowledge = useCallback(async () => {
+    if (knowledgeTogglePendingRef.current) return;
+    knowledgeTogglePendingRef.current = true;
+    const next = !knowledgeActive;
+    setKnowledgeActive(next);
+    try {
+      await workspaceActions.setWorkspaceToolEnabled(
+        KNOWLEDGE_RETRIEVAL_TOOL_NAME,
+        next,
+      );
+      pushToast(
+        'info',
+        next ? t('knowledge.enabled') : t('knowledge.disabled'),
+      );
+    } catch {
+      setKnowledgeActive((prev) => !prev);
+      pushToast('error', t('knowledge.toggleFailed'));
+    } finally {
+      knowledgeTogglePendingRef.current = false;
+    }
+  }, [knowledgeActive, workspaceActions, pushToast, t]);
 
   const returnToChat = useCallback(() => {
     if (navigationRef.current && navigationRef.current.route.page !== 'chat') {
