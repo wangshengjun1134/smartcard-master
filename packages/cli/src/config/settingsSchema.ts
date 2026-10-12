@@ -2341,6 +2341,16 @@ const SETTINGS_SCHEMA = {
           'URL for the knowledge base retrieval service. Leave empty to disable knowledge retrieval.',
         showInDialog: true,
       },
+      retrievalTimeoutSeconds: {
+        type: 'number',
+        label: 'Knowledge Retrieval Timeout (seconds)',
+        category: 'Knowledge',
+        requiresRestart: false,
+        default: undefined as number | undefined,
+        description:
+          'Time budget for one knowledge retrieval call, in seconds (default 60; values outside 1–3600 fall back to the default). Raise it when the retrieval service reranks slowly.',
+        showInDialog: true,
+      },
     },
   },
 

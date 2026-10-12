@@ -241,6 +241,9 @@ describe('settings presentation aliases', () => {
       'setting:respect-git-ignore': 'context.fileFiltering.respectGitIgnore',
       'setting:respect-qwen-ignore': 'context.fileFiltering.respectQwenIgnore',
       'setting:fuzzy-file-search': 'context.fileFiltering.enableFuzzySearch',
+      'setting:knowledge-retrieval-url': 'knowledge.retrievalUrl',
+      'setting:knowledge-retrieval-timeout-seconds':
+        'knowledge.retrievalTimeoutSeconds',
       'setting:code-mode-only': 'tools.codeModeOnly',
       'setting:web-search': 'tools.webSearch.enabled',
       'setting:web-search-model': 'tools.webSearch.model',

@@ -1086,6 +1086,10 @@
         "retrievalUrl": {
           "description": "URL for the knowledge base retrieval service. Leave empty to disable knowledge retrieval.",
           "type": "string"
+        },
+        "retrievalTimeoutSeconds": {
+          "description": "Time budget for one knowledge retrieval call, in seconds (default 60; values outside 1–3600 fall back to the default). Raise it when the retrieval service reranks slowly.",
+          "type": "number"
         }
       }
     },
