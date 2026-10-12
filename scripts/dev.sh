@@ -55,7 +55,7 @@ case "${1:-}" in
     warn "请先关闭正在运行的桌面 App / 其它 qwen serve（会话运行时是单例，否则会话接口会 503）"
     log "启动 daemon + Vite 前端热更新 ..."
     cd "$ROOT"
-    exec pnpm run dev:daemon -- "$@"
+    exec pnpm run dev:daemon "$@"
     ;;
   desktop)
     need_runtime
