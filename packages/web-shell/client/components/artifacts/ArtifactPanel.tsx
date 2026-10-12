@@ -3054,6 +3054,16 @@ function ArtifactDetail({
     );
   }
 
+  // A remote PDF (e.g. a knowledge-base document) embeds directly instead of
+  // dropping to the metadata panel, matching the workspace-file preview UX.
+  if (
+    artifact.storage === 'external_url' &&
+    artifact.kind === 'pdf' &&
+    safeUrl
+  ) {
+    return <ExternalDocumentPreview url={safeUrl} title={artifact.title} />;
+  }
+
   return (
     <div className={styles.detail}>
       <div className={styles.section}>
@@ -3679,6 +3689,23 @@ function TextAttachmentPreview({
       previewOnly
       previewKind={previewKind}
     />
+  );
+}
+
+function ExternalDocumentPreview({
+  url,
+  title,
+}: {
+  url: string;
+  title: string;
+}) {
+  return (
+    <div className={styles.detail}>
+      <div className={styles.section}>
+        <div className={styles.sectionTitle}>{title}</div>
+      </div>
+      <iframe className={styles.pdfAttachmentPreview} src={url} title={title} />
+    </div>
   );
 }
 

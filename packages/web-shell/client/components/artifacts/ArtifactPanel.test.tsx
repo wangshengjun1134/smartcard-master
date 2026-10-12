@@ -4115,3 +4115,38 @@ describe('ArtifactPanel trajectory entry', () => {
     ).not.toBeNull();
   });
 });
+
+describe('ArtifactPanel remote document previews', () => {
+  it('embeds a remote pdf artifact in an iframe', async () => {
+    const url =
+      'http://127.0.0.1:8000/api/docs/doc-1/pages?start_page=180&end_page=180';
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    mounted.push({ root, container });
+    act(() =>
+      root.render(
+        artifactPanel({
+          id: 'knowledge-doc',
+          kind: 'pdf',
+          storage: 'external_url',
+          source: 'tool',
+          status: 'available',
+          title: 'SGP.23-v1.16.pdf · p.180',
+          url,
+          mimeType: 'application/pdf',
+          toolName: 'knowledge_retrieval',
+          retention: 'ephemeral',
+          clientRetained: false,
+          createdAt: '2026-10-12T00:00:00.000Z',
+          updatedAt: '2026-10-12T00:00:00.000Z',
+        }),
+      ),
+    );
+    await flush();
+
+    const frame = container.querySelector('iframe');
+    expect(frame?.getAttribute('src')).toBe(url);
+    expect(container.textContent).toContain('SGP.23-v1.16.pdf · p.180');
+  });
+});

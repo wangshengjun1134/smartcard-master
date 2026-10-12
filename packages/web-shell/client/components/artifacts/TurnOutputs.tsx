@@ -4,7 +4,11 @@ import type {
   DaemonSessionArtifact,
 } from '@qwen-code/sdk/daemon';
 import type { ACPToolCall } from '../../adapters/types';
-import { DownloadIcon, SquareArrowOutUpRightIcon } from 'lucide-react';
+import {
+  BookOpenIcon,
+  DownloadIcon,
+  SquareArrowOutUpRightIcon,
+} from 'lucide-react';
 import { memo, useEffect, useRef, useState } from 'react';
 import { useExternalLinkOpener } from '../../hooks/useExternalLinkOpener';
 import { useI18n } from '../../i18n';
@@ -63,6 +67,9 @@ export const TURN_OUTPUT_KINDS: readonly TurnOutputKind[] = [
 ];
 
 export const TURN_OUTPUT_VISIBLE_LIMIT = 3;
+
+/** Tool whose artifacts are rendered as one uncapped citation list. */
+const KNOWLEDGE_RETRIEVAL_TOOL_NAME = 'knowledge_retrieval';
 
 export function visibleTurnOutputs<T>(
   items: readonly T[],
@@ -202,8 +209,16 @@ function TurnOutputsComponent({
   }
   const visibleChanges = visibleTurnOutputs(changes, showAllChanges);
   const remainingChanges = changes.length - TURN_OUTPUT_VISIBLE_LIMIT;
-  const visibleArtifacts = visibleTurnOutputs(artifacts, showAllArtifacts);
-  const remainingArtifacts = artifacts.length - TURN_OUTPUT_VISIBLE_LIMIT;
+  // Knowledge citations render as one card with an uncapped list; every other
+  // artifact keeps the default card + visible-limit behavior.
+  const citationArtifacts = artifacts.filter(
+    (artifact) => artifact.toolName === KNOWLEDGE_RETRIEVAL_TOOL_NAME,
+  );
+  const otherArtifacts = artifacts.filter(
+    (artifact) => artifact.toolName !== KNOWLEDGE_RETRIEVAL_TOOL_NAME,
+  );
+  const visibleArtifacts = visibleTurnOutputs(otherArtifacts, showAllArtifacts);
+  const remainingArtifacts = otherArtifacts.length - TURN_OUTPUT_VISIBLE_LIMIT;
   const totals = sumLineStats(changes);
   const openReview = (selectedPath?: string) => {
     if (onOpenRequest) {
@@ -379,6 +394,36 @@ function TurnOutputsComponent({
                 <ChevronIcon open={showAllChanges} />
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {citationArtifacts.length > 0 && (
+        <div className={styles.card}>
+          <div className={styles.summary}>
+            <span className={styles.icon} aria-hidden="true">
+              <BookOpenIcon size={16} strokeWidth={1.8} />
+            </span>
+            <div className={styles.artifactInfo}>
+              <div className={styles.title}>
+                {t('turnOutputs.knowledgeCitations', {
+                  count: citationArtifacts.length,
+                })}
+              </div>
+            </div>
+          </div>
+          <div className={styles.list}>
+            {citationArtifacts.map((artifact) => (
+              <button
+                type="button"
+                key={artifact.id}
+                className={styles.fileRow}
+                onClick={() => openArtifact(artifact)}
+                title={artifact.title}
+              >
+                <span className={styles.path}>{artifact.title}</span>
+              </button>
+            ))}
           </div>
         </div>
       )}

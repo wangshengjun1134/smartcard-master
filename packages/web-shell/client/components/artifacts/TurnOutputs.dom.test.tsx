@@ -790,3 +790,78 @@ describe('host artifact visibility', () => {
     act(() => root.unmount());
   });
 });
+
+describe('knowledge citation artifacts', () => {
+  const citations = Array.from({ length: 5 }, (_, i) => ({
+    id: `cit-${i}`,
+    kind: 'pdf',
+    storage: 'external_url',
+    status: 'available',
+    title: `SGP.23-v1.16.pdf · p.${100 + i}`,
+    url: `http://127.0.0.1:8000/api/docs/doc-${i}/pages?start_page=${100 + i}&end_page=${100 + i}`,
+    toolName: 'knowledge_retrieval',
+  })) as DaemonSessionArtifact[];
+
+  it('lists every citation in one card and does not truncate the count', () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    act(() =>
+      root.render(
+        <I18nProvider language="en">
+          <TurnOutputs
+            turnId="turn-1"
+            sourceSessionId="session-1"
+            changes={[]}
+            artifacts={citations}
+            scheduledTasks={[]}
+            onReviewChanges={() => {}}
+            onOpenArtifact={() => {}}
+            onOpenScheduledTask={() => {}}
+          />
+        </I18nProvider>,
+      ),
+    );
+
+    expect(container.textContent).toContain('Knowledge references (5)');
+    // All five rows render — no "show more" truncation at the default limit.
+    for (let i = 0; i < 5; i++) {
+      expect(container.textContent).toContain(`p.${100 + i}`);
+    }
+    act(() => root.unmount());
+  });
+
+  it('opens the clicked citation through the artifact callback', () => {
+    const onOpenRequest = vi.fn();
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    act(() =>
+      root.render(
+        <I18nProvider language="en">
+          <TurnOutputs
+            turnId="turn-1"
+            sourceSessionId="session-1"
+            changes={[]}
+            artifacts={citations}
+            scheduledTasks={[]}
+            onOpenRequest={onOpenRequest}
+            onReviewChanges={() => {}}
+            onOpenArtifact={() => {}}
+            onOpenScheduledTask={() => {}}
+          />
+        </I18nProvider>,
+      ),
+    );
+
+    const row = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.includes('p.102'),
+    );
+    expect(row).toBeDefined();
+    act(() => row?.click());
+    expect(onOpenRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'artifact', artifactId: 'cit-2' }),
+    );
+    act(() => root.unmount());
+  });
+});
