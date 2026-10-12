@@ -842,6 +842,13 @@ export interface SystemPromptLayers {
    */
   mediaGuidance?: string | null;
   /**
+   * Stable layer: the knowledge retrieval contract (knowledge/guidance.ts) —
+   * fixed for the whole session (the knowledge config does not change
+   * in-session). Describes the knowledge base and directs retrieval through
+   * the built-in tool.
+   */
+  knowledgeGuidance?: string | null;
+  /**
    * Context layer: concatenated context files (QWEN.md hierarchy, baseline
    * rules, extension files). Reloaded only on explicit refresh.
    */
@@ -866,6 +873,7 @@ export function assembleSystemPrompt(layers: SystemPromptLayers): string {
   return (
     layers.base +
     buildSystemPromptSuffix(layers.mediaGuidance ?? undefined) +
+    buildSystemPromptSuffix(layers.knowledgeGuidance ?? undefined) +
     buildSystemPromptSuffix(layers.contextFiles) +
     buildSystemPromptSuffix(layers.appendPrompt) +
     (layers.gitStatus ? `\n\n${layers.gitStatus}` : '') +
