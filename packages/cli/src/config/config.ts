@@ -50,6 +50,7 @@ import {
   type OmniPolicyToolsSettings,
   type SkillLevel,
   type WebSearchSettings,
+  type KnowledgeRetrievalSettings,
   MAX_SUBAGENT_DEPTH_LIMIT,
   addDaemonRequestAttribute,
   BUILT_IN_OUTPUT_STYLES,
@@ -1124,6 +1125,18 @@ function resolveWebSearchSettings(
     timeoutMs,
     maxPerSession,
   };
+}
+
+/**
+ * Resolve the built-in knowledge retrieval settings from
+ * `knowledge.retrievalUrl`. Returns undefined when the URL is absent or
+ * blank, which keeps the knowledge_retrieval tool unregistered.
+ */
+function resolveKnowledgeSettings(
+  settings: Settings,
+): KnowledgeRetrievalSettings | undefined {
+  const retrievalUrl = settings.knowledge?.retrievalUrl?.trim();
+  return retrievalUrl ? { retrievalUrl } : undefined;
 }
 
 /**
@@ -2814,6 +2827,10 @@ export async function loadCliConfig(
       bareMode || safeMode
         ? { enabled: false }
         : resolveWebSearchSettings(settings),
+    // Safe/bare mode withholds the knowledge tool by leaving the settings
+    // undefined, which keeps the tool unregistered.
+    knowledgeRetrieval:
+      bareMode || safeMode ? undefined : resolveKnowledgeSettings(settings),
     visionModel: settings.visionModel || undefined,
     compactionModel: settings.compactionModel || undefined,
     imageModel: settings.imageModel || undefined,

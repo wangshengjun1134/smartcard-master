@@ -92,6 +92,9 @@ export const AGENT_TOOL_CLASSIFICATION = {
   [ToolNames.SMARTCARD_SEND_APDU]: 'deny',
   [ToolNames.SMARTCARD_RESET]: 'deny',
   [ToolNames.SMARTCARD_EXECUTE_SKILL]: 'deny',
+  // Knowledge retrieval issues an outbound HTTP request, so the read-only
+  // Agent host denies it for the same reason as web_fetch / web_search.
+  [ToolNames.KNOWLEDGE_RETRIEVAL]: 'deny',
   // The omni media family is absent from `SAFE_TOOL_ALLOWLIST`, which is where
   // the read-only file and search tools are declared, so an Agent keeps
   // reaching media through `read_file` / `zoom_image` / `display_image` and

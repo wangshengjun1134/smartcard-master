@@ -9549,6 +9549,22 @@ describe('Server Config (config.ts)', () => {
       expect(webSearchNotices(config)).toHaveLength(1);
     });
 
+    it('registers knowledge_retrieval only when a retrieval URL is configured', async () => {
+      const without = await initConfig();
+      expect(without.getKnowledgeRetrievalSettings()).toBeUndefined();
+      expect(registeredToolNames()).not.toContain(
+        ToolNames.KNOWLEDGE_RETRIEVAL,
+      );
+
+      const withUrl = await initConfig({
+        knowledgeRetrieval: { retrievalUrl: 'http://127.0.0.1:8000' },
+      });
+      expect(withUrl.getKnowledgeRetrievalSettings()).toEqual({
+        retrievalUrl: 'http://127.0.0.1:8000',
+      });
+      expect(registeredToolNames()).toContain(ToolNames.KNOWLEDGE_RETRIEVAL);
+    });
+
     // ── #9827 / #10075: tools.eager keeps unlisted schemas out of the eager
     // model request, but demotes (not removes) the unlisted tools ──
     it('registers tools.eager entries eagerly and demotes the rest to deferred (#9827, #10075)', async () => {

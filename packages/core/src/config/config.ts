@@ -498,6 +498,7 @@ import {
 } from '../models/index.js';
 import { resolveModelId } from '../utils/modelId.js';
 import type { WebSearchSettings } from '../tools/web-search.js';
+import type { KnowledgeRetrievalSettings } from '../knowledge/types.js';
 import type { ClaudeMarketplaceConfig } from '../extension/claude-converter.js';
 
 export function parseVisionModelSetting(setting: string | undefined):
@@ -1616,6 +1617,12 @@ export interface ConfigParameters {
    * at startup. An explicit model or env-declared backend takes precedence.
    */
   webSearch?: WebSearchSettings;
+  /**
+   * Knowledge base retrieval settings resolved from `knowledge.retrievalUrl`.
+   * Undefined when the feature is unconfigured — the knowledge_retrieval tool
+   * is then not registered at all.
+   */
+  knowledgeRetrieval?: KnowledgeRetrievalSettings;
   /**
    * Safe mode: disables all user customizations (context files, hooks,
    * extensions, skills, MCP servers, rules) for troubleshooting.
@@ -3223,6 +3230,7 @@ export class Config {
   private readonly advisorMaxUses: number;
   private readonly advisorUsage = { calls: 0 };
   private readonly webSearchSettings?: WebSearchSettings;
+  private readonly knowledgeRetrievalSettings?: KnowledgeRetrievalSettings;
   private webSearchNoticeEmitted = false;
   /**
    * Per-session web_search call count. An object that is never reassigned:
@@ -3846,6 +3854,7 @@ export class Config {
       ? params.advisorMaxUses
       : 0;
     this.webSearchSettings = params.webSearch;
+    this.knowledgeRetrievalSettings = params.knowledgeRetrieval;
     this.visionModel = params.visionModel || undefined;
     this.compactionModel = params.compactionModel || undefined;
     this.imageModel = params.imageModel || undefined;
@@ -6786,6 +6795,15 @@ export class Config {
    */
   getWebSearchSettings(): WebSearchSettings | undefined {
     return this.webSearchSettings;
+  }
+
+  /**
+   * Settings for the built-in knowledge retrieval tool. Undefined when
+   * `knowledge.retrievalUrl` was not configured, in which case the
+   * knowledge_retrieval tool is never registered.
+   */
+  getKnowledgeRetrievalSettings(): KnowledgeRetrievalSettings | undefined {
+    return this.knowledgeRetrievalSettings;
   }
 
   /**
@@ -12768,6 +12786,17 @@ export class Config {
           '../smartcard/tools/execute-skill.js'
         );
         return new SmartCardExecuteSkillTool();
+      });
+    }
+    // Knowledge retrieval registers only when a service URL is configured, so
+    // an unconfigured deployment never advertises a tool it cannot serve.
+    const knowledgeRetrievalUrl = this.knowledgeRetrievalSettings?.retrievalUrl;
+    if (knowledgeRetrievalUrl) {
+      await registerLazy(ToolNames.KNOWLEDGE_RETRIEVAL, async () => {
+        const { KnowledgeRetrievalTool } = await import(
+          '../knowledge/tools/retrieval.js'
+        );
+        return new KnowledgeRetrievalTool(knowledgeRetrievalUrl);
       });
     }
     if (this.isArtifactEnabled()) {
