@@ -2322,6 +2322,28 @@ const SETTINGS_SCHEMA = {
     },
   },
 
+  knowledge: {
+    type: 'object',
+    label: 'Knowledge',
+    category: 'Knowledge',
+    requiresRestart: false,
+    default: {},
+    description: 'Knowledge base retrieval settings.',
+    showInDialog: false,
+    properties: {
+      retrievalUrl: {
+        type: 'string',
+        label: 'Knowledge Retrieval URL',
+        category: 'Knowledge',
+        requiresRestart: false,
+        default: undefined as string | undefined,
+        description:
+          'URL for the knowledge base retrieval service. Leave empty to disable knowledge retrieval.',
+        showInDialog: true,
+      },
+    },
+  },
+
   memory: {
     type: 'object',
     label: 'Memory',

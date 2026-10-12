@@ -1079,6 +1079,16 @@
         }
       }
     },
+    "knowledge": {
+      "description": "Knowledge base retrieval settings.",
+      "type": "object",
+      "properties": {
+        "retrievalUrl": {
+          "description": "URL for the knowledge base retrieval service. Leave empty to disable knowledge retrieval.",
+          "type": "string"
+        }
+      }
+    },
     "memory": {
       "description": "Settings for managed auto-memory.",
       "type": "object",
