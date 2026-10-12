@@ -151,14 +151,25 @@ async function installNodeRuntime(destination, desktopTarget) {
     : path.join(os.tmpdir(), 'qwen-desktop-node-cache');
   const cacheDir = path.join(cacheRoot, `v${nodeVersion}`);
   const cachedArchivePath = path.join(cacheDir, archiveName);
-  fs.rmSync(path.join(cacheDir, 'SHASUMS256.txt'), { force: true });
+  const cachedChecksumsPath = path.join(cacheDir, 'SHASUMS256.txt');
+  // Read any pre-seeded checksums before the cleanup below removes the file:
+  // an offline environment (where Node's fetch cannot reach nodejs.org) relies
+  // on a pre-seeded cache to reuse the archive instead of downloading.
+  const preSeededChecksums = fs.existsSync(cachedChecksumsPath)
+    ? fs.readFileSync(cachedChecksumsPath, 'utf8')
+    : undefined;
+  fs.rmSync(cachedChecksumsPath, { force: true });
   const temporaryRoot = fs.mkdtempSync(
     path.join(os.tmpdir(), 'qwen-desktop-node-'),
   );
   try {
     const checksumsPath = path.join(temporaryRoot, 'SHASUMS256.txt');
     const archivePath = path.join(temporaryRoot, archiveName);
-    await download(`${downloadRoot}/SHASUMS256.txt`, checksumsPath);
+    if (preSeededChecksums !== undefined) {
+      fs.writeFileSync(checksumsPath, preSeededChecksums);
+    } else {
+      await download(`${downloadRoot}/SHASUMS256.txt`, checksumsPath);
+    }
     const checksums = fs.readFileSync(checksumsPath, 'utf8');
     if (
       copyValidCachedArchive(
