@@ -19,6 +19,18 @@ import type { WebShellRightPanelItem } from '../../customization';
 import type { ArtifactWorkspaceTarget } from './useArtifactWorkspaceTarget';
 import type { TurnOutputScheduledTask } from './TurnOutputs';
 
+// pdf.js needs a real canvas/worker, which jsdom lacks; stub the renderer and
+// assert on the props it receives instead.
+vi.mock('./PdfCanvasPreview', () => ({
+  PdfCanvasPreview: (props: { url: string; title: string; page?: number }) => (
+    <div
+      data-testid="pdf-canvas-preview"
+      data-url={props.url}
+      data-page={props.page}
+    />
+  ),
+}));
+
 const originalCreateObjectURL = Object.getOwnPropertyDescriptor(
   URL,
   'createObjectURL',
@@ -4117,7 +4129,7 @@ describe('ArtifactPanel trajectory entry', () => {
 });
 
 describe('ArtifactPanel remote document previews', () => {
-  it('embeds a remote pdf artifact in an iframe', async () => {
+  it('renders a remote pdf artifact with the canvas viewer', async () => {
     const url =
       'http://127.0.0.1:8000/api/docs/doc-1/pages?start_page=180&end_page=180';
     const container = document.createElement('div');
@@ -4136,6 +4148,7 @@ describe('ArtifactPanel remote document previews', () => {
           url,
           mimeType: 'application/pdf',
           toolName: 'knowledge_retrieval',
+          metadata: { pageNos: '180' },
           retention: 'ephemeral',
           clientRetained: false,
           createdAt: '2026-10-12T00:00:00.000Z',
@@ -4145,8 +4158,10 @@ describe('ArtifactPanel remote document previews', () => {
     );
     await flush();
 
-    const frame = container.querySelector('iframe');
-    expect(frame?.getAttribute('src')).toBe(url);
-    expect(container.textContent).toContain('SGP.23-v1.16.pdf · p.180');
+    const preview = container.querySelector(
+      '[data-testid="pdf-canvas-preview"]',
+    );
+    expect(preview?.getAttribute('data-url')).toBe(url);
+    expect(preview?.getAttribute('data-page')).toBe('180');
   });
 });

@@ -7,6 +7,7 @@ import type {
 } from '@qwen-code/sdk/daemon';
 import type { ACPToolCall, TodoItem } from '../../adapters/types';
 import type { WebShellRightPanelItem } from '../../customization';
+import { PdfCanvasPreview } from './PdfCanvasPreview';
 import {
   useConnection,
   useWorkspace,
@@ -3061,7 +3062,13 @@ function ArtifactDetail({
     artifact.kind === 'pdf' &&
     safeUrl
   ) {
-    return <ExternalDocumentPreview url={safeUrl} title={artifact.title} />;
+    return (
+      <ExternalDocumentPreview
+        url={safeUrl}
+        title={artifact.title}
+        page={firstCitationPage(artifact)}
+      />
+    );
   }
 
   return (
@@ -3695,18 +3702,23 @@ function TextAttachmentPreview({
 function ExternalDocumentPreview({
   url,
   title,
+  page,
 }: {
   url: string;
   title: string;
+  page?: number;
 }) {
-  return (
-    <div className={styles.detail}>
-      <div className={styles.section}>
-        <div className={styles.sectionTitle}>{title}</div>
-      </div>
-      <iframe className={styles.pdfAttachmentPreview} src={url} title={title} />
-    </div>
-  );
+  return <PdfCanvasPreview url={url} title={title} page={page} />;
+}
+
+/** First page a citation points at, from the artifact's `pageNos` metadata. */
+function firstCitationPage(
+  artifact: DaemonSessionArtifact,
+): number | undefined {
+  const raw = artifact.metadata?.['pageNos'];
+  if (typeof raw !== 'string') return undefined;
+  const first = Number(raw.split(',')[0]?.trim());
+  return Number.isInteger(first) && first > 0 ? first : undefined;
 }
 
 function PdfAttachmentPreview({
