@@ -4370,8 +4370,8 @@ describe('createServeApp', () => {
           .find((directive: string) => directive.startsWith('connect-src '));
         expect(connect).toBe(
           clientMcpOverWs
-            ? "connect-src 'self' http://127.0.0.1:47821 https://unpkg.com/@qwen-code/"
-            : "connect-src 'self' https://unpkg.com/@qwen-code/",
+            ? "connect-src 'self' http: https: http://127.0.0.1:47821 https://unpkg.com/@qwen-code/"
+            : "connect-src 'self' http: https: https://unpkg.com/@qwen-code/",
         );
       },
     );
@@ -4409,7 +4409,7 @@ describe('createServeApp', () => {
         .set('Host', host);
       expect(res.status).toBe(200);
       expect(res.headers['content-security-policy']).toContain(
-        "connect-src 'self' https://daemon.example.com:4170 wss://daemon.example.com:4170",
+        "connect-src 'self' http: https: https://daemon.example.com:4170 wss://daemon.example.com:4170",
       );
     });
 
@@ -4435,7 +4435,7 @@ describe('createServeApp', () => {
         .set('Host', host);
       expect(repeated.status).toBe(200);
       expect(repeated.headers['content-security-policy']).toContain(
-        "connect-src 'self' https://daemon.example.com:4170 wss://daemon.example.com:4170",
+        "connect-src 'self' http: https: https://daemon.example.com:4170 wss://daemon.example.com:4170",
       );
       expect(repeated.headers['content-security-policy']).not.toContain(
         'other.example',
@@ -4449,7 +4449,7 @@ describe('createServeApp', () => {
         'evil.example',
       );
       expect(bracketed.headers['content-security-policy']).toContain(
-        "connect-src 'self' https://unpkg.com/@qwen-code/;",
+        "connect-src 'self' http: https: https://unpkg.com/@qwen-code/;",
       );
 
       // The mixed shape is the one that broke functionally, not just by
@@ -4466,7 +4466,7 @@ describe('createServeApp', () => {
         'evil.example',
       );
       expect(mixed.headers['content-security-policy']).toContain(
-        "connect-src 'self' https://daemon.example.com:4170 wss://daemon.example.com:4170",
+        "connect-src 'self' http: https: https://daemon.example.com:4170 wss://daemon.example.com:4170",
       );
     });
 

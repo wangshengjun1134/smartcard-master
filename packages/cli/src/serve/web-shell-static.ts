@@ -73,7 +73,11 @@ export function buildWebShellCsp(
   // PDF attachments use blob URLs; live previews pin their own child source.
   const frameSrc = 'frame-src http: https: blob:';
   const connectSrc = [
-    "connect-src 'self'",
+    // The knowledge retrieval service base URL is user-configured (host/port
+    // vary per workspace), so allow the http/https schemes outright instead of
+    // pinning an origin — the Web Shell fetches PDF bytes from it for the
+    // pdf.js preview. Mirrors the already-permissive frame-src below.
+    "connect-src 'self' http: https:",
     ...connectOrigins,
     'https://unpkg.com/@qwen-code/',
   ].join(' ');

@@ -34,7 +34,9 @@ describe('Web Shell sandbox framing', () => {
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' data:;",
     );
     expect(csp).toContain("style-src 'self' 'unsafe-inline' data:;");
-    expect(csp).toContain("connect-src 'self' https://unpkg.com/@qwen-code/");
+    expect(csp).toContain(
+      "connect-src 'self' http: https: https://unpkg.com/@qwen-code/",
+    );
     expect(csp).not.toContain('frame-src *');
   });
 
@@ -107,7 +109,7 @@ describe('Web Shell sandbox framing', () => {
         ),
       ),
     ).toContain(
-      "connect-src 'self' https://daemon.example.com:4170 wss://daemon.example.com:4170",
+      "connect-src 'self' http: https: https://daemon.example.com:4170 wss://daemon.example.com:4170",
     );
 
     expect(remoteDaemonConnectOrigins('http://evil.example%3Bsandbox')).toEqual(
@@ -128,7 +130,7 @@ describe('Web Shell sandbox framing', () => {
       remoteDaemonConnectOrigins('https://daemon.example.com:4170'),
     );
     expect(csp).toContain(
-      "connect-src 'self' https://daemon.example.com:4170 wss://daemon.example.com:4170",
+      "connect-src 'self' http: https: https://daemon.example.com:4170 wss://daemon.example.com:4170",
     );
   });
 
@@ -181,7 +183,7 @@ describe('Web Shell sandbox framing', () => {
       if (expected === null) {
         expect(csp).toBe(buildWebShellCsp());
       } else {
-        expect(csp).toContain(`connect-src 'self' ${expected}`);
+        expect(csp).toContain(`connect-src 'self' http: https: ${expected}`);
       }
     }
     // The one shape that both granted and blocked the wrong origin: the
@@ -196,7 +198,7 @@ describe('Web Shell sandbox framing', () => {
     );
     expect(mixed).not.toContain('4182');
     expect(mixed).toContain(
-      "connect-src 'self' http://localhost:4181 ws://localhost:4181",
+      "connect-src 'self' http: https: http://localhost:4181 ws://localhost:4181",
     );
   });
 });
@@ -269,8 +271,8 @@ describe('public PWA HTTP routes', () => {
           ),
         ).toBe(
           enabled
-            ? "connect-src 'self' http://127.0.0.1:47821 https://unpkg.com/@qwen-code/"
-            : "connect-src 'self' https://unpkg.com/@qwen-code/",
+            ? "connect-src 'self' http: https: http://127.0.0.1:47821 https://unpkg.com/@qwen-code/"
+            : "connect-src 'self' http: https: https://unpkg.com/@qwen-code/",
         );
       }
     },
