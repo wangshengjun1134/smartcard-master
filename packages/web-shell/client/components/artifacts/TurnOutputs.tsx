@@ -200,6 +200,7 @@ function TurnOutputsComponent({
   const workspaceActions = workspaceTarget?.actions;
   const [showAllChanges, setShowAllChanges] = useState(false);
   const [showAllArtifacts, setShowAllArtifacts] = useState(false);
+  const [showCitationList, setShowCitationList] = useState(false);
   if (
     changes.length === 0 &&
     artifacts.length === 0 &&
@@ -400,7 +401,11 @@ function TurnOutputsComponent({
 
       {citationArtifacts.length > 0 && (
         <div className={styles.card}>
-          <div className={styles.summary}>
+          <div
+            className={styles.summary}
+            style={{ cursor: 'pointer' }}
+            onClick={() => setShowCitationList((v) => !v)}
+          >
             <span className={styles.icon} aria-hidden="true">
               <BookOpenIcon size={16} strokeWidth={1.8} />
             </span>
@@ -411,20 +416,23 @@ function TurnOutputsComponent({
                 })}
               </div>
             </div>
+            <ChevronIcon open={showCitationList} />
           </div>
-          <div className={styles.list}>
-            {citationArtifacts.map((artifact) => (
-              <button
-                type="button"
-                key={artifact.id}
-                className={styles.fileRow}
-                onClick={() => openArtifact(artifact)}
-                title={artifact.title}
-              >
-                <span className={styles.path}>{artifact.title}</span>
-              </button>
-            ))}
-          </div>
+          {showCitationList && (
+            <div className={styles.list}>
+              {citationArtifacts.map((artifact) => (
+                <button
+                  type="button"
+                  key={artifact.id}
+                  className={styles.fileRow}
+                  onClick={() => openArtifact(artifact)}
+                  title={artifact.title}
+                >
+                  <span className={styles.path}>{artifact.title}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

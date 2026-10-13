@@ -824,6 +824,15 @@ describe('knowledge citation artifacts', () => {
     );
 
     expect(container.textContent).toContain('Knowledge references (5)');
+    // Citation list is collapsed by default — click the summary (cursor:pointer) to expand.
+    const summary = Array.from(container.querySelectorAll('*')).find(
+      (el) =>
+        (el as HTMLElement).style?.cursor === 'pointer' &&
+        el.textContent?.includes('Knowledge references'),
+    ) as HTMLElement | null;
+    act(() =>
+      summary?.dispatchEvent(new MouseEvent('click', { bubbles: true })),
+    );
     // All five rows render — no "show more" truncation at the default limit.
     for (let i = 0; i < 5; i++) {
       expect(container.textContent).toContain(`p.${100 + i}`);
@@ -852,6 +861,16 @@ describe('knowledge citation artifacts', () => {
           />
         </I18nProvider>,
       ),
+    );
+
+    // Citation list is collapsed by default — click the summary (cursor:pointer) to expand.
+    const summary = Array.from(container.querySelectorAll('*')).find(
+      (el) =>
+        (el as HTMLElement).style?.cursor === 'pointer' &&
+        el.textContent?.includes('Knowledge references'),
+    ) as HTMLElement | null;
+    act(() =>
+      summary?.dispatchEvent(new MouseEvent('click', { bubbles: true })),
     );
 
     const row = Array.from(container.querySelectorAll('button')).find(
