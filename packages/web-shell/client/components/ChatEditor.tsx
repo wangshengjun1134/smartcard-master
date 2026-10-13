@@ -3831,18 +3831,12 @@ export const ChatEditor = memo(
                 {showToolbarAction('referenceKnowledge') &&
                   knowledgeEnabled && (
                     <button
-                      className={styles.toolbarBtn}
+                      className={styles.referenceKnowledgeBtn}
                       type="button"
                       title={t('editor.referenceKnowledge')}
                       aria-label={t('editor.referenceKnowledge')}
                       aria-pressed={knowledgeActive}
                       onClick={onToggleKnowledge}
-                      style={{
-                        backgroundColor: knowledgeActive
-                          ? 'var(--accent-color, #4a9eff)'
-                          : undefined,
-                        color: knowledgeActive ? '#fff' : undefined,
-                      }}
                     >
                       <BookOpenIcon size={16} strokeWidth={1.5} />
                     </button>

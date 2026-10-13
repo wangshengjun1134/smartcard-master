@@ -2858,3 +2858,36 @@
 .editorShell[data-web-shell-mobile-composer] .searchResult {
   min-height: 44px;
 }
+
+/* Composer toolbar toggle ("reference knowledge") matching the send button's
+   look: light gray when idle, dark (with the purple shadow) when toggled on. */
+.referenceKnowledgeBtn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: none;
+  background: var(--agent-gray-200);
+  color: var(--chat-send-button-disabled-foreground);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin-left: 4px;
+  transition: all 0.2s ease;
+}
+
+.referenceKnowledgeBtn:hover {
+  filter: brightness(1.08);
+}
+
+.referenceKnowledgeBtn:active {
+  transform: scale(0.96);
+}
+
+.referenceKnowledgeBtn[aria-pressed='true'] {
+  background: var(--agent-gray-800);
+  box-shadow: var(--agent-purple-shadow);
+  color: var(--chat-send-button-foreground);
+}
