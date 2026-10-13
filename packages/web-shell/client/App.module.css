@@ -1259,7 +1259,7 @@
   background: color-mix(in srgb, var(--foreground) 8%, transparent);
 }
 
-/* SmartCard Console Panel */
+/* APDU Console Panel */
 .smartCardPanel {
   --smartcard-panel-width: var(--smartcard-panel-width, 500px);
 }

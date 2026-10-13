@@ -113,7 +113,7 @@ export function SmartCardConsole({
   const [consoleLines, setConsoleLines] = useState<
     Array<{ timestamp: string; message: string; type?: 'input' | 'output' }>
   >([
-    { timestamp: '[21:55:48]', message: 'SmartCard Console initialized' },
+    { timestamp: '[21:55:48]', message: 'APDU Console initialized' },
     {
       timestamp: '[21:55:49]',
       message: 'Ready for commands... Type /help for available commands',
@@ -476,7 +476,7 @@ export function SmartCardConsole({
       return 'Console cleared';
     }
     if (command === '/version') {
-      return 'SmartCard Console v1.0.0';
+      return 'APDU Console v1.0.0';
     }
     if (command === '/status') {
       return `Active reader: ${activeReaderId ?? '(none)'} | Readers: ${readers.length}`;
@@ -564,7 +564,7 @@ export function SmartCardConsole({
 
       {/* Header */}
       <div className={styles.header}>
-        <div className={styles.title}>SmartCard Console</div>
+        <div className={styles.title}>APDU Console</div>
         <button
           className={styles.toolBtn}
           onClick={handleWidthToggle}

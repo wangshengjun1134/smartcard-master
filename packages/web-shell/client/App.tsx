@@ -22946,7 +22946,7 @@ export function App({
                 </div>,
                 artifactPanelSlotEl,
               )}
-            {/* SmartCard Console - fixed panel on the right side. The daemon
+            {/* APDU Console - fixed panel on the right side. The daemon
                 only registers the smart-card routes under QWEN_CODE_DESKTOP,
                 so the console belongs to the desktop shell; it is also shown
                 under the Vite dev server for UI work, but not in tests (where
